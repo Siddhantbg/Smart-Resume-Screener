@@ -1,4 +1,4 @@
-from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi import FastAPI, UploadFile, File, HTTPException, Body
 from contextlib import asynccontextmanager
 from dotenv import load_dotenv
 import google.generativeai as genai
@@ -7,11 +7,18 @@ import shutil
 from pathlib import Path
 from parsers.resume_parser import extract_resume_data
 from parsers.jd_parser import extract_jd_data
+from llm_scorer import get_match_score, get_detailed_analysis
+from pydantic import BaseModel
+from typing import Dict, Any
 
 load_dotenv()
 
 UPLOAD_DIR = Path("uploads")
 UPLOAD_DIR.mkdir(exist_ok=True)
+
+class MatchRequest(BaseModel):
+    resume_data: Dict[str, Any]
+    jd_data: Dict[str, Any]
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -84,3 +91,36 @@ async def parse_jd(file: UploadFile = File(...)):
     finally:
         if file_path.exists():
             file_path.unlink()
+
+@app.post("/match")
+async def match_resume_jd(request: MatchRequest):
+    try:
+        if not request.resume_data or not request.jd_data:
+            raise HTTPException(status_code=400, detail="Both resume_data and jd_data are required")
+        
+        result = get_match_score(request.resume_data, request.jd_data)
+        
+        return {
+            "status": "success",
+            "score": result["score"],
+            "justification": result["justification"]
+        }
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error matching resume: {str(e)}")
+
+@app.post("/analyze")
+async def analyze_candidate(request: MatchRequest):
+    try:
+        if not request.resume_data or not request.jd_data:
+            raise HTTPException(status_code=400, detail="Both resume_data and jd_data are required")
+        
+        analysis = get_detailed_analysis(request.resume_data, request.jd_data)
+        
+        return {
+            "status": "success",
+            "analysis": analysis
+        }
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error analyzing candidate: {str(e)}")
