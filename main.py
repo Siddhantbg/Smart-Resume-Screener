@@ -183,6 +183,8 @@ async def score_resume_jd(request: ScoreRequest):
 
 @app.post("/score_files")
 async def score_uploaded_files(resume: UploadFile = File(...), jd: UploadFile = File(...)):
+    from database import save_resume, save_job_description, save_score
+    
     try:
         gemini_key = os.getenv("GEMINI_API_KEY")
         if not gemini_key:
@@ -209,8 +211,26 @@ async def score_uploaded_files(resume: UploadFile = File(...), jd: UploadFile = 
             
             detailed_score = get_detailed_score(resume_data, jd_data)
             
+            resume_id = save_resume(resume_data, resume.filename)
+            jd_id = save_job_description(jd_data, jd.filename)
+            
+            score_data = {
+                "name": resume_data.get('name', 'Unknown'),
+                "job_title": jd_data.get('job_title', 'Not specified'),
+                "skills_match": detailed_score["skills_match"],
+                "experience_relevance": detailed_score["experience_relevance"],
+                "education_fit": detailed_score["education_fit"],
+                "overall_fit": detailed_score["overall_fit"],
+                "justification": detailed_score["justification"]
+            }
+            
+            score_id = save_score(resume_id, jd_id, score_data, resume.filename, jd.filename)
+            
             return {
                 "status": "success",
+                "score_id": score_id,
+                "resume_id": resume_id,
+                "jd_id": jd_id,
                 "candidate_name": resume_data.get('name', 'Unknown'),
                 "job_title": jd_data.get('job_title', 'Not specified'),
                 "skills_match": detailed_score["skills_match"],
@@ -230,3 +250,118 @@ async def score_uploaded_files(resume: UploadFile = File(...), jd: UploadFile = 
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error scoring files: {str(e)}")
+
+@app.get("/analytics")
+async def get_analytics():
+    from database import get_analytics_data
+    
+    try:
+        analytics = get_analytics_data()
+        
+        if not analytics:
+            raise HTTPException(status_code=500, detail="Unable to fetch analytics data")
+        
+        return {
+            "status": "success",
+            "data": analytics
+        }
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching analytics: {str(e)}")
+
+@app.get("/db_status")
+async def check_db_status():
+    from database import get_db_status
+    
+    try:
+        status = get_db_status()
+        return {
+            "status": "success",
+            "data": status
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error checking database status: {str(e)}")
+
+@app.get("/resumes")
+async def get_resumes():
+    from database import get_all_resumes
+    
+    try:
+        resumes = get_all_resumes()
+        return {
+            "status": "success",
+            "count": len(resumes),
+            "data": resumes
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching resumes: {str(e)}")
+
+@app.get("/scores")
+async def get_scores():
+    from database import get_all_scores
+    
+    try:
+        scores = get_all_scores()
+        return {
+            "status": "success",
+            "count": len(scores),
+            "data": scores
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching scores: {str(e)}")
+
+@app.delete("/resumes/{resume_id}")
+async def delete_resume(resume_id: str):
+    from database import delete_resume
+    
+    try:
+        success = delete_resume(resume_id)
+        if not success:
+            raise HTTPException(status_code=404, detail="Resume not found or unable to delete")
+        
+        return {
+            "status": "success",
+            "message": "Resume deleted successfully"
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error deleting resume: {str(e)}")
+
+@app.delete("/scores/{score_id}")
+async def delete_score(score_id: str):
+    from database import delete_score
+    
+    try:
+        success = delete_score(score_id)
+        if not success:
+            raise HTTPException(status_code=404, detail="Score not found or unable to delete")
+        
+        return {
+            "status": "success",
+            "message": "Score deleted successfully"
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error deleting score: {str(e)}")
+
+@app.post("/clear_database")
+async def clear_database():
+    from database import clear_all_data
+    
+    try:
+        success = clear_all_data()
+        if not success:
+            raise HTTPException(status_code=500, detail="Unable to clear database")
+        
+        return {
+            "status": "success",
+            "message": "All data cleared successfully"
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error clearing database: {str(e)}")

@@ -11,7 +11,30 @@ export default function ScoreCard({ result, rank }) {
     return 'bg-red-500'
   }
 
-  const isShortlisted = rank <= 3
+  const SHORTLIST_THRESHOLD = 6.0
+  const isShortlisted = result.overall_fit >= SHORTLIST_THRESHOLD && rank <= 3
+
+  const getStatusBadge = () => {
+    if (isShortlisted) {
+      return (
+        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-800">
+          Shortlisted
+        </span>
+      )
+    }
+    if (result.overall_fit >= 4) {
+      return (
+        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-800">
+          Under Review
+        </span>
+      )
+    }
+    return (
+      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-red-100 text-red-800">
+        Not Qualified
+      </span>
+    )
+  }
 
   return (
     <div className={`bg-white rounded-lg shadow-sm border-2 ${isShortlisted ? 'border-blue-500' : 'border-slate-200'} p-6`}>
@@ -21,11 +44,7 @@ export default function ScoreCard({ result, rank }) {
             <span className={`text-2xl font-bold ${isShortlisted ? 'text-blue-600' : 'text-slate-400'}`}>
               #{rank}
             </span>
-            {isShortlisted && (
-              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-800">
-                Shortlisted
-              </span>
-            )}
+            {getStatusBadge()}
           </div>
           <h3 className="text-xl font-bold text-slate-900 mt-2">
             {result.candidate_name}

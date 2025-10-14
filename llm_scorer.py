@@ -26,7 +26,7 @@ def check_gemini_configured():
 def get_match_score(resume_data, jd_data):
     try:
         check_gemini_configured()
-        model = genai.GenerativeModel('gemini-pro')
+        model = genai.GenerativeModel('gemini-2.5-flash')
         
         prompt = f"""Compare the following resume and job description. Rate the candidate's fit from 1-10 and justify briefly.
 Return in JSON format: {{"score": <number>, "justification": "<text>"}}
@@ -74,7 +74,7 @@ Qualifications: {', '.join(jd_data.get('qualifications', []))}"""
 def get_detailed_score(resume_data, jd_data):
     try:
         check_gemini_configured()
-        model = genai.GenerativeModel('gemini-pro')
+        model = genai.GenerativeModel('gemini-2.5-flash')
         
         prompt = f"""Compare candidate resume details with the job description and rate:
 - Skill Match (1-10)
@@ -151,7 +151,7 @@ Return as JSON:
 def get_detailed_analysis(resume_data, jd_data):
     try:
         check_gemini_configured()
-        model = genai.GenerativeModel('gemini-pro')
+        model = genai.GenerativeModel('gemini-2.5-flash')
         
         prompt = f"""Analyze this candidate's fit for the job role. Provide:
 1. Strengths (what matches well)

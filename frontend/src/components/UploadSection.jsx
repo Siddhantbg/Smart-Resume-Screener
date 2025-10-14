@@ -34,7 +34,7 @@ export default function UploadSection({ setResults, setLoading, setError }) {
         formData.append('resume', resume)
         formData.append('jd', jobDescription)
 
-        const response = await axios.post('/score_files', formData, {
+        const response = await axios.post('/api/score_files', formData, {
           headers: { 'Content-Type': 'multipart/form-data' }
         })
 
