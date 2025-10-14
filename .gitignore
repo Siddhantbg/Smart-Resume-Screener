@@ -30,7 +30,7 @@ wheels/
 .DS_Store
 Thumbs.db
 
-*.log
+logs/*.log
 
 uploads/
 temp/
