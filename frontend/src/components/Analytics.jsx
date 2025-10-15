@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
+import api from '../config/api';
 import {
   PieChart, Pie, Cell, BarChart, Bar, LineChart, Line,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer
@@ -29,7 +29,7 @@ export default function Analytics({ refreshTrigger }) {
       if (showLoading) {
         setLoading(true);
       }
-      const response = await axios.get('/api/analytics');
+      const response = await api.get('/api/analytics');
       setAnalytics(response.data.data);
       setError(null);
     } catch (err) {

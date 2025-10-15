@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import axios from 'axios'
+import api from '../config/api'
 import StatusLottie from './StatusLottie'
 import StatusIcon from './StatusIcon'
 
@@ -25,7 +25,7 @@ export default function UploadSection({ setResults, setLoading, setError }) {
   const fetchUploadedResumes = async () => {
     setLoadingUploaded(true)
     try {
-      const response = await axios.get('/api/resumes')
+      const response = await api.get('/api/resumes')
       const resumesData = response.data.data || []
       setUploadedResumes(resumesData)
       
@@ -61,7 +61,7 @@ export default function UploadSection({ setResults, setLoading, setError }) {
       
       for (const resume of resumesData) {
         try {
-          const scoresResponse = await axios.get(`/api/resumes/${resume._id}/scores`)
+          const scoresResponse = await api.get(`/api/resumes/${resume._id}/scores`)
           const scores = scoresResponse.data.data || []
           
           if (scores.length > 0) {
@@ -125,7 +125,7 @@ export default function UploadSection({ setResults, setLoading, setError }) {
   const fetchUploadedJDs = async () => {
     setLoadingJDs(true)
     try {
-      const response = await axios.get('/api/job_descriptions')
+      const response = await api.get('/api/job_descriptions')
       setUploadedJDs(response.data.data || [])
     } catch (err) {
       console.error('Error fetching job descriptions:', err)
@@ -232,7 +232,7 @@ export default function UploadSection({ setResults, setLoading, setError }) {
     }
     
     try {
-      await axios.delete(`/api/resumes/${id}`)
+      await api.delete(`/api/resumes/${id}`)
       
       // Clear selected resume if it's the one being deleted
       if (selectedResume && selectedResume._id === id) {
@@ -251,7 +251,7 @@ export default function UploadSection({ setResults, setLoading, setError }) {
     setSelectedResume(resume)
     setLoadingScores(true)
     try {
-      const response = await axios.get(`/api/resumes/${resume._id}/scores`)
+      const response = await api.get(`/api/resumes/${resume._id}/scores`)
       setResumeScores(response.data.data || [])
     } catch (err) {
       console.error('Error fetching resume scores:', err)

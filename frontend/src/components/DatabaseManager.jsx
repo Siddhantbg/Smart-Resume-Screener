@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
+import api from '../config/api';
 
 export default function DatabaseManager({ onDataChange }) {
   const [dbStatus, setDbStatus] = useState(null);
@@ -14,7 +14,7 @@ export default function DatabaseManager({ onDataChange }) {
 
   const fetchDbStatus = async () => {
     try {
-      const response = await axios.get('/api/db_status');
+      const response = await api.get('/api/db_status');
       setDbStatus(response.data.data);
     } catch (err) {
       console.error('Failed to fetch DB status:', err);
@@ -24,7 +24,7 @@ export default function DatabaseManager({ onDataChange }) {
   const fetchResumes = async () => {
     setLoading(true);
     try {
-      const response = await axios.get('/api/resumes');
+      const response = await api.get('/api/resumes');
       setResumes(response.data.data);
     } catch (err) {
       console.error('Failed to fetch resumes:', err);
@@ -36,7 +36,7 @@ export default function DatabaseManager({ onDataChange }) {
   const fetchScores = async () => {
     setLoading(true);
     try {
-      const response = await axios.get('/api/scores');
+      const response = await api.get('/api/scores');
       setScores(response.data.data);
     } catch (err) {
       console.error('Failed to fetch scores:', err);
@@ -49,7 +49,7 @@ export default function DatabaseManager({ onDataChange }) {
     if (!confirm('⚠️ This will also delete all scores associated with this resume. Continue?')) return;
     
     try {
-      await axios.delete(`/api/resumes/${id}`);
+      await api.delete(`/api/resumes/${id}`);
       fetchResumes();
       fetchDbStatus();
       if (onDataChange) onDataChange();
@@ -63,7 +63,7 @@ export default function DatabaseManager({ onDataChange }) {
     if (!confirm('Are you sure you want to delete this score?')) return;
     
     try {
-      await axios.delete(`/api/scores/${id}`);
+      await api.delete(`/api/scores/${id}`);
       fetchScores();
       fetchDbStatus();
       if (onDataChange) onDataChange();
@@ -77,7 +77,7 @@ export default function DatabaseManager({ onDataChange }) {
     
     setLoading(true);
     try {
-      await axios.post('/api/clear_database');
+      await api.post('/api/clear_database');
       setResumes([]);
       setScores([]);
       fetchDbStatus();
