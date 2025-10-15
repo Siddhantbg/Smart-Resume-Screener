@@ -5,3 +5,4 @@ google-generativeai
 pdfminer.six
 spacy
 python-dotenv
+python-multipart
