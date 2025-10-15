@@ -273,9 +273,10 @@ async def get_analytics():
 
 @app.get("/db_status")
 async def check_db_status():
-    from database import get_db_status
+    from database import get_db_status, cleanup_orphaned_scores
     
     try:
+        cleanup_orphaned_scores()
         status = get_db_status()
         return {
             "status": "success",

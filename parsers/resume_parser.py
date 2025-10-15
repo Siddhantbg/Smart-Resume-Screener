@@ -47,16 +47,42 @@ def extract_skills(text):
     return list(set(found_skills))
 
 def extract_education(text):
-    education_keywords = ['bachelor', 'master', 'phd', 'b.tech', 'm.tech', 'mba', 'bca', 'mca', 'b.e', 'm.e']
-    lines = text.split('\n')
+    education_keywords = [
+        'bachelor', 'master', 'phd', 'b.tech', 'm.tech', 'mba', 'bca', 'mca', 
+        'b.e', 'm.e', 'b.sc', 'm.sc', 'btech', 'mtech', 'undergraduate', 'graduate',
+        'engineering', 'computer science', 'information technology', 'electrical'
+    ]
     
+    grade_keywords = ['cgpa', 'gpa', 'percentage', '%', 'marks', 'score', 'grade']
+    
+    lines = text.split('\n')
+    education_blocks = []
+    
+    # Find all education-related lines
     for i, line in enumerate(lines):
         line_lower = line.lower()
         if any(keyword in line_lower for keyword in education_keywords):
-            education_info = line.strip()
-            if i + 1 < len(lines):
-                education_info += ' ' + lines[i + 1].strip()
-            return clean_text(education_info)
+            # Collect the current line and next 3-5 lines to capture full education details
+            education_block = [line.strip()]
+            
+            # Look ahead to capture grades, university, years
+            for j in range(1, 6):
+                if i + j < len(lines):
+                    next_line = lines[i + j].strip()
+                    if next_line and len(next_line) > 3:  # Avoid empty or very short lines
+                        education_block.append(next_line)
+                        # Stop if we hit another major section
+                        if any(sec in next_line.lower() for sec in ['experience', 'project', 'skill', 'achievement']):
+                            break
+            
+            # Join the education block
+            full_education = ' | '.join(education_block[:4])  # Take max 4 lines
+            education_blocks.append(full_education)
+    
+    if education_blocks:
+        # Return all education details, prioritizing entries with grades
+        all_education = ' || '.join(education_blocks[:3])  # Max 3 education entries
+        return clean_text(all_education)
     
     return "Not specified"
 

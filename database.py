@@ -176,8 +176,14 @@ def delete_resume(resume_id):
         return False
     
     try:
-        result = db.resumes.delete_one({"_id": ObjectId(resume_id)})
-        return result.deleted_count > 0
+        resume_result = db.resumes.delete_one({"_id": ObjectId(resume_id)})
+        
+        if resume_result.deleted_count > 0:
+            scores_result = db.scores.delete_many({"resume_id": resume_id})
+            print(f"Deleted resume {resume_id} and {scores_result.deleted_count} associated scores")
+            return True
+        
+        return False
     except Exception as e:
         print(f"Error deleting resume: {e}")
         return False
@@ -194,15 +200,57 @@ def delete_score(score_id):
         print(f"Error deleting score: {e}")
         return False
 
+def delete_job_description(jd_id):
+    db = get_database()
+    if db is None:
+        return False
+    
+    try:
+        jd_result = db.job_descriptions.delete_one({"_id": ObjectId(jd_id)})
+        
+        if jd_result.deleted_count > 0:
+            scores_result = db.scores.delete_many({"jd_id": jd_id})
+            print(f"Deleted job description {jd_id} and {scores_result.deleted_count} associated scores")
+            return True
+        
+        return False
+    except Exception as e:
+        print(f"Error deleting job description: {e}")
+        return False
+
+def cleanup_orphaned_scores():
+    db = get_database()
+    if db is None:
+        return 0
+    
+    try:
+        resume_ids = set([str(r["_id"]) for r in db.resumes.find({}, {"_id": 1})])
+        jd_ids = set([str(j["_id"]) for j in db.job_descriptions.find({}, {"_id": 1})])
+        
+        orphaned_count = 0
+        for score in db.scores.find():
+            if score["resume_id"] not in resume_ids or score["jd_id"] not in jd_ids:
+                db.scores.delete_one({"_id": score["_id"]})
+                orphaned_count += 1
+        
+        if orphaned_count > 0:
+            print(f"Cleaned up {orphaned_count} orphaned scores")
+        
+        return orphaned_count
+    except Exception as e:
+        print(f"Error cleaning orphaned scores: {e}")
+        return 0
+
 def clear_all_data():
     db = get_database()
     if db is None:
         return False
     
     try:
-        db.resumes.delete_many({})
-        db.job_descriptions.delete_many({})
-        db.scores.delete_many({})
+        resumes_count = db.resumes.delete_many({}).deleted_count
+        jds_count = db.job_descriptions.delete_many({}).deleted_count
+        scores_count = db.scores.delete_many({}).deleted_count
+        print(f"Cleared {resumes_count} resumes, {jds_count} job descriptions, {scores_count} scores")
         return True
     except Exception as e:
         print(f"Error clearing data: {e}")

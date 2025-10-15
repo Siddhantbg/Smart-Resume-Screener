@@ -77,12 +77,18 @@ def get_detailed_score(resume_data, jd_data):
         model = genai.GenerativeModel('gemini-2.5-flash')
         
         prompt = f"""Compare candidate resume details with the job description and rate:
-- Skill Match (1-10)
-- Experience Relevance (1-10)
-- Education Fit (1-10)
-- Overall Fit (1-10)
+- Skill Match (1-10): How well do the candidate's skills match the required skills?
+- Experience Relevance (1-10): How relevant is their experience to the role?
+- Education Fit (1-10): Rate based on degree level, field relevance, and academic performance (CGPA/grades). 
+  * High CGPA (9+/10 or 90+%) should score 8-10 even if field is slightly different
+  * Relevant field + good grades = 9-10
+  * If education shows "Not specified", give 3-5/10 as neutral/unknown
+- Overall Fit (1-10): Holistic assessment considering all factors
 
-Provide a short justification for each rating.
+IMPORTANT: For Education Fit, consider:
+- Academic performance (CGPA, percentage, grades) is very important
+- Field relevance (CS, IT, Engineering degrees are often interchangeable for tech roles)
+- Degree level (Bachelor's, Master's, etc.)
 
 Resume:
 Name: {resume_data.get('name', 'N/A')}
@@ -104,7 +110,7 @@ Return as JSON:
   "experience_relevance": <number>,
   "education_fit": <number>,
   "overall_fit": <number>,
-  "justification": "<detailed text>"
+  "justification": "<detailed text explaining each rating>"
 }}"""
 
         log_api_call(f"Calling Gemini API for detailed score - Candidate: {resume_data.get('name', 'Unknown')}")

@@ -11,6 +11,7 @@ function App() {
   const [error, setError] = useState(null)
   const [viewMode, setViewMode] = useState('table')
   const [activeTab, setActiveTab] = useState('upload')
+  const [analyticsRefreshTrigger, setAnalyticsRefreshTrigger] = useState(0)
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -119,9 +120,9 @@ function App() {
             )}
           </>
         ) : activeTab === 'analytics' ? (
-          <Analytics />
+          <Analytics refreshTrigger={analyticsRefreshTrigger} />
         ) : (
-          <DatabaseManager />
+          <DatabaseManager onDataChange={() => setAnalyticsRefreshTrigger(prev => prev + 1)} />
         )}
       </main>
     </div>

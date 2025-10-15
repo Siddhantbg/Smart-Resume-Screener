@@ -8,12 +8,41 @@ def clean_text(text):
 
 def extract_job_title(text):
     lines = text.split('\n')
-    for line in lines[:10]:
+    
+    # Extended list of job-related keywords
+    job_keywords = [
+        'developer', 'engineer', 'manager', 'analyst', 'designer', 'architect', 'lead', 
+        'senior', 'junior', 'intern', 'internship', 'associate', 'specialist', 'coordinator',
+        'consultant', 'officer', 'executive', 'administrator', 'technician', 'operator',
+        'supervisor', 'director', 'head', 'chief', 'assistant', 'trainee', 'expert',
+        'scientist', 'researcher', 'programmer', 'administrator', 'operations', 'support'
+    ]
+    
+    # First pass: Look for lines with job keywords in first 15 lines
+    for line in lines[:15]:
         line = line.strip()
-        if line and len(line) < 100:
-            keywords = ['developer', 'engineer', 'manager', 'analyst', 'designer', 'architect', 'lead', 'senior', 'junior']
-            if any(keyword in line.lower() for keyword in keywords):
+        if line and 10 < len(line) < 100:  # Reasonable job title length
+            line_lower = line.lower()
+            if any(keyword in line_lower for keyword in job_keywords):
+                # Avoid lines that are clearly sections or headers
+                if not any(exclude in line_lower for exclude in ['qualification', 'requirement', 'skill', 'description', 'about', 'overview']):
+                    return line
+    
+    # Second pass: Look for lines ending with common job suffixes
+    for line in lines[:15]:
+        line = line.strip()
+        if line and 10 < len(line) < 100:
+            if re.search(r'\b(Intern|Engineer|Developer|Manager|Analyst|Specialist|Officer|Coordinator|Associate|Executive|Consultant)\b', line, re.IGNORECASE):
                 return line
+    
+    # Third pass: Look for "Position:" or "Role:" or "Title:" patterns
+    for line in lines[:20]:
+        match = re.search(r'(?:Position|Role|Title|Job)\s*:\s*(.+)', line, re.IGNORECASE)
+        if match:
+            title = match.group(1).strip()
+            if 5 < len(title) < 100:
+                return title
+    
     return "Not specified"
 
 def extract_required_skills(text):
@@ -92,9 +121,30 @@ def extract_responsibilities(text):
 
 def extract_company_name(text):
     lines = text.split('\n')
+    
+    # Look for "Company:" pattern
+    for line in lines[:20]:
+        match = re.search(r'(?:Company|Organization|Employer)\s*:\s*(.+)', line, re.IGNORECASE)
+        if match:
+            company = match.group(1).strip()
+            if 2 < len(company) < 80:
+                return company
+    
+    # Look for lines with company suffixes
     for line in lines[:15]:
-        if re.match(r'^[A-Z][A-Za-z\s&]+(?:Inc|Ltd|LLC|Corp|Corporation|Company)?', line.strip()):
-            return line.strip()[:50]
+        line_stripped = line.strip()
+        if re.search(r'\b(?:Inc|Ltd|LLC|Corp|Corporation|Company|Technologies|Solutions|Systems|Services|Group|Pvt|Private Limited)\b', line_stripped):
+            if 5 < len(line_stripped) < 80:
+                return line_stripped[:50]
+    
+    # Look for capitalized lines (often company names)
+    for line in lines[:10]:
+        line_stripped = line.strip()
+        if line_stripped and line_stripped[0].isupper() and 3 < len(line_stripped) < 50:
+            # Not a job title or section header
+            if not any(keyword in line_stripped.lower() for keyword in ['job', 'position', 'role', 'description', 'qualification', 'requirement', 'intern', 'engineer', 'developer', 'manager']):
+                return line_stripped
+    
     return "Not specified"
 
 def extract_location(text):

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 
-export default function DatabaseManager() {
+export default function DatabaseManager({ onDataChange }) {
   const [dbStatus, setDbStatus] = useState(null);
   const [resumes, setResumes] = useState([]);
   const [scores, setScores] = useState([]);
@@ -46,12 +46,14 @@ export default function DatabaseManager() {
   };
 
   const deleteResume = async (id) => {
-    if (!confirm('Are you sure you want to delete this resume?')) return;
+    if (!confirm('⚠️ This will also delete all scores associated with this resume. Continue?')) return;
     
     try {
       await axios.delete(`/api/resumes/${id}`);
       fetchResumes();
       fetchDbStatus();
+      if (onDataChange) onDataChange();
+      alert('Resume and associated scores deleted successfully');
     } catch (err) {
       alert('Failed to delete resume');
     }
@@ -64,6 +66,7 @@ export default function DatabaseManager() {
       await axios.delete(`/api/scores/${id}`);
       fetchScores();
       fetchDbStatus();
+      if (onDataChange) onDataChange();
     } catch (err) {
       alert('Failed to delete score');
     }
@@ -78,6 +81,7 @@ export default function DatabaseManager() {
       setResumes([]);
       setScores([]);
       fetchDbStatus();
+      if (onDataChange) onDataChange();
       alert('Database cleared successfully');
     } catch (err) {
       alert('Failed to clear database');

@@ -7,13 +7,21 @@ import {
 
 const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#14B8A6', '#F97316'];
 
-export default function Analytics() {
+export default function Analytics({ refreshTrigger }) {
   const [analytics, setAnalytics] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   useEffect(() => {
     fetchAnalytics();
+  }, [refreshTrigger]);
+
+  useEffect(() => {
+    const intervalId = setInterval(() => {
+      fetchAnalytics();
+    }, 10000);
+    
+    return () => clearInterval(intervalId);
   }, []);
 
   const fetchAnalytics = async () => {
@@ -150,12 +158,52 @@ export default function Analytics() {
 
       <div className="bg-white border border-gray-200 rounded-lg p-6">
         <h3 className="text-lg font-semibold text-gray-800 mb-4">Most Requested Roles</h3>
+        
+        {/* Warning for "Not specified" data */}
+        {analytics.most_requested_roles.some(role => role.role === "Not specified") && (
+          <div className="mb-4 bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+            <div className="flex items-start gap-3">
+              <svg className="w-5 h-5 text-yellow-600 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+              <div className="flex-1">
+                <p className="text-sm font-semibold text-yellow-800 mb-1">
+                  ⚠️ Old Data Detected
+                </p>
+                <p className="text-xs text-yellow-700 mb-2">
+                  Some job titles show "Not specified" because they were uploaded before the parser was improved.
+                </p>
+                <p className="text-xs text-yellow-700 font-medium">
+                  💡 To fix: Go to <span className="font-bold">Database tab</span> → Delete old job descriptions → Re-upload them
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+        
         {analytics.most_requested_roles.length > 0 ? (
           <div className="space-y-2">
             {analytics.most_requested_roles.map((role, index) => (
-              <div key={index} className="flex items-center justify-between bg-gray-50 p-3 rounded">
-                <span className="font-medium text-gray-700">{role.role}</span>
-                <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-semibold">
+              <div 
+                key={index} 
+                className={`flex items-center justify-between p-3 rounded ${
+                  role.role === "Not specified" 
+                    ? "bg-yellow-50 border border-yellow-200" 
+                    : "bg-gray-50"
+                }`}
+              >
+                <span className={`font-medium ${
+                  role.role === "Not specified" 
+                    ? "text-yellow-800" 
+                    : "text-gray-700"
+                }`}>
+                  {role.role}
+                </span>
+                <span className={`px-3 py-1 rounded-full text-sm font-semibold ${
+                  role.role === "Not specified"
+                    ? "bg-yellow-100 text-yellow-700"
+                    : "bg-blue-100 text-blue-700"
+                }`}>
                   {role.count} requests
                 </span>
               </div>
