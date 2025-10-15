@@ -41,6 +41,10 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 
+# Create API router with /api prefix
+from fastapi import APIRouter
+api_router = APIRouter()
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:3000", "http://localhost:3001", "https://smart-resume-backend.onrender.com", "https://smart-resume-screener-jee0.onrender.com", "https://smart-resume-screener.vercel.app", "https://smart-resume-screener-kappa.vercel.app"],
@@ -49,8 +53,15 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Mount the API router with /api prefix
+app.mount("/api", api_router)
+
 @app.get("/")
 def root():
+    return {"message": "Smart Resume Screener API running"}
+
+@api_router.get("/")
+def api_root():
     return {"message": "Smart Resume Screener API running"}
 
 @app.post("/parse_resume")
@@ -346,7 +357,7 @@ async def get_analytics():
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching analytics: {str(e)}")
 
-@app.get("/db_status")
+@api_router.get("/db_status")
 async def check_db_status():
     from database import get_db_status, cleanup_orphaned_scores
     
@@ -360,7 +371,7 @@ async def check_db_status():
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error checking database status: {str(e)}")
 
-@app.get("/resumes")
+@api_router.get("/resumes")
 async def get_resumes():
     from database import get_all_resumes
     
@@ -374,7 +385,7 @@ async def get_resumes():
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching resumes: {str(e)}")
 
-@app.get("/scores")
+@api_router.get("/scores")
 async def get_scores():
     from database import get_all_scores
     
@@ -388,7 +399,7 @@ async def get_scores():
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching scores: {str(e)}")
 
-@app.get("/job_descriptions")
+@api_router.get("/job_descriptions")
 async def get_job_descriptions():
     from database import get_all_job_descriptions
     
