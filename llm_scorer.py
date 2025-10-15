@@ -453,37 +453,37 @@ def generate_justification(
     exp_details = scores['experience_details']
     edu_details = scores['education_details']
     
-    # Build paragraph-style analysis
-    analysis_parts = []
+    # Build natural paragraph-style analysis
+    paragraphs = []
     
-    # Opening statement
+    # Opening statement with context
     if is_shortlisted:
-        analysis_parts.append(f"**SHORTLISTED** - {name} is a strong fit for the {job_title} position.")
+        opening = f"{name} has been shortlisted for the {job_title} position. "
     else:
-        analysis_parts.append(f"**NOT SHORTLISTED** - {name} does not meet the minimum requirements for the {job_title} role.")
+        opening = f"{name} does not meet the minimum requirements for the {job_title} role. "
     
-    # Overview
-    analysis_parts.append(f"This is an {seniority.title()} level position, and the candidate achieved an overall score of {scores['overall_fit']:.2f}/10.")
+    opening += f"This is an {seniority.lower()} level position, and the candidate achieved an overall score of {scores['overall_fit']:.2f} out of 10. "
     
-    # Skills paragraph
-    skills_text = f"**Skills Match ({scores['skills_match']:.2f}/10):** "
+    # Skills assessment
     if skill_details['matched']:
-        skills_text += f"The candidate demonstrates proficiency in {', '.join(skill_details['matched'][:5])}"
+        opening += f"In terms of skills, the candidate demonstrates proficiency in {', '.join(skill_details['matched'][:5])}"
         if len(skill_details['matched']) > 5:
-            skills_text += f" and {len(skill_details['matched']) - 5} more skills"
-        skills_text += f", achieving a {skill_details['match_ratio']}% match ratio. "
+            opening += f" and {len(skill_details['matched']) - 5} additional skills"
+        opening += f", achieving a {skill_details['match_ratio']}% match ratio with a skills score of {scores['skills_match']:.2f}/10. "
     else:
-        skills_text += f"The candidate shows limited skill alignment with a {skill_details['match_ratio']}% match ratio. "
+        opening += f"The candidate shows limited skill alignment with only a {skill_details['match_ratio']}% match ratio, resulting in a skills score of {scores['skills_match']:.2f}/10. "
     
     if skill_details['critical_missing']:
-        skills_text += f"However, critical skills are missing: {', '.join(skill_details['critical_missing'])}. "
+        opening += f"However, there are critical gaps in essential skills such as {', '.join(skill_details['critical_missing'])}. "
     elif skill_details['missing']:
-        skills_text += f"Some desirable skills could be improved: {', '.join(skill_details['missing'][:3])}. "
+        opening += f"Some desirable skills that could strengthen the profile include {', '.join(skill_details['missing'][:3])}. "
     
-    analysis_parts.append(skills_text.strip())
+    paragraphs.append(opening.strip())
     
-    # Experience paragraph
-    exp_text = f"**Experience ({scores['experience_relevance']:.2f}/10):** "
+    # Experience and education in second paragraph
+    second_para = ""
+    
+    # Experience
     exp_details_list = []
     if exp_details['resume_years'] > 0:
         exp_details_list.append(f"{exp_details['resume_years']} years of relevant experience")
@@ -491,47 +491,53 @@ def generate_justification(
         exp_details_list.append("internship background")
     
     if exp_details_list:
-        exp_text += f"The candidate brings {' and '.join(exp_details_list)}. "
+        second_para += f"Regarding work experience, the candidate brings {' and '.join(exp_details_list)}"
     else:
-        exp_text += "The candidate has limited documented work experience. "
+        second_para += f"The candidate has limited documented work experience"
     
     if exp_details['required_years'] > 0:
-        exp_text += f"The role requires {exp_details['required_years']}+ years of experience. "
+        second_para += f", while the role requires {exp_details['required_years']}+ years"
     
-    analysis_parts.append(exp_text.strip())
+    second_para += f", earning an experience score of {scores['experience_relevance']:.2f}/10. "
     
-    # Education paragraph
-    edu_text = f"**Education ({scores['education_fit']:.2f}/10):** "
-    edu_text += f"The candidate holds a {edu_details.get('degree_level', 'Unknown')} degree"
+    # Education
+    second_para += f"On the educational front, the candidate holds a {edu_details.get('degree_level', 'degree').lower()}"
     
     if edu_details.get('has_tech_degree'):
-        edu_text += " in a technical field (CS/IT/Engineering)"
+        second_para += " in a technical field such as Computer Science, IT, or Engineering"
     
-    edu_text += ". "
+    second_para += ". "
     
     if edu_details.get('academic_performance', 0) >= 8:
-        edu_text += f"Academic performance is strong with a score of {edu_details['academic_performance']:.1f}/10. "
+        second_para += f"Academic performance is strong with excellent grades, reflected in an education score of {scores['education_fit']:.2f}/10. "
     elif edu_details.get('academic_performance', 0) > 0:
-        edu_text += f"Academic performance is moderate with a score of {edu_details['academic_performance']:.1f}/10. "
+        second_para += f"Academic performance is moderate, reflected in an education score of {scores['education_fit']:.2f}/10. "
+    else:
+        second_para += f"The education score is {scores['education_fit']:.2f}/10. "
     
-    analysis_parts.append(edu_text.strip())
+    paragraphs.append(second_para.strip())
     
-    # Rejection reasons paragraph
+    # Rejection reasons as final paragraph
     if not is_shortlisted:
         rejection_reasons = []
         if scores['overall_fit'] < 6.5:
-            rejection_reasons.append("overall fit score is below the acceptance threshold")
+            rejection_reasons.append("the overall fit score falls below the acceptance threshold")
         if skill_details['critical_missing']:
-            rejection_reasons.append(f"missing critical skills ({', '.join(skill_details['critical_missing'])})")
+            rejection_reasons.append(f"critical skills are missing, specifically {', '.join(skill_details['critical_missing'])}")
         if seniority == 'senior' and scores['experience_relevance'] < 5.0:
-            rejection_reasons.append("insufficient experience for a senior-level role")
+            rejection_reasons.append("the experience level is insufficient for a senior-level role")
         
         if rejection_reasons:
-            rejection_text = "**Rejection Reasons:** The candidate was not shortlisted because "
-            rejection_text += ", ".join(rejection_reasons) + "."
-            analysis_parts.append(rejection_text)
+            conclusion = "The candidate was not shortlisted because "
+            if len(rejection_reasons) == 1:
+                conclusion += rejection_reasons[0] + "."
+            elif len(rejection_reasons) == 2:
+                conclusion += rejection_reasons[0] + " and " + rejection_reasons[1] + "."
+            else:
+                conclusion += ", ".join(rejection_reasons[:-1]) + ", and " + rejection_reasons[-1] + "."
+            paragraphs.append(conclusion)
     
-    return "\n\n".join(analysis_parts)
+    return "\n\n".join(paragraphs)
 
 def get_detailed_score(resume_data: Dict[str, Any], jd_data: Dict[str, Any]) -> Dict[str, Any]:
     """
