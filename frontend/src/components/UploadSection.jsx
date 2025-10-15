@@ -7,17 +7,16 @@ export default function UploadSection({ setResults, setLoading, setError }) {
   const [resumes, setResumes] = useState([])
   const [jobDescription, setJobDescription] = useState(null)
   const [uploadedResumes, setUploadedResumes] = useState([])
-  const [loadingUploaded, setLoadingUploaded] = useState(true) // Start with true for initial load
+  const [loadingUploaded, setLoadingUploaded] = useState(true) 
   const [selectedResume, setSelectedResume] = useState(null)
   const [resumeScores, setResumeScores] = useState([])
   const [loadingScores, setLoadingScores] = useState(false)
   const [uploadedJDs, setUploadedJDs] = useState([])
   const [loadingJDs, setLoadingJDs] = useState(true)
   const [selectedJDId, setSelectedJDId] = useState('')
-  const [jdMode, setJdMode] = useState('upload') // 'upload' or 'select'
-  const [resumeStatuses, setResumeStatuses] = useState({}) // Store latest status for each resume
+  const [jdMode, setJdMode] = useState('upload') 
+  const [resumeStatuses, setResumeStatuses] = useState({}) 
 
-  // Fetch uploaded resumes and JDs on component mount
   useEffect(() => {
     fetchUploadedResumes()
     fetchUploadedJDs()
@@ -27,15 +26,30 @@ export default function UploadSection({ setResults, setLoading, setError }) {
     setLoadingUploaded(true)
     try {
       const response = await axios.get('/api/resumes')
-      // API returns { status, count, data } - extract the data array
       const resumesData = response.data.data || []
       setUploadedResumes(resumesData)
       
-      // Fetch latest score status for each resume
+      // If no resumes, clear cached results
+      if (resumesData.length === 0) {
+        try {
+          localStorage.removeItem('srs:lastResults:v1')
+          if (typeof setResults === 'function') {
+            setResults([])
+          }
+        } catch {}
+      }
+      
       await fetchResumeStatuses(resumesData)
     } catch (err) {
       console.error('Error fetching uploaded resumes:', err)
-      setUploadedResumes([]) // Set empty array on error
+      setUploadedResumes([])
+      // Clear results on error too
+      try {
+        localStorage.removeItem('srs:lastResults:v1')
+        if (typeof setResults === 'function') {
+          setResults([])
+        }
+      } catch {}
     } finally {
       setLoadingUploaded(false)
     }
@@ -45,18 +59,20 @@ export default function UploadSection({ setResults, setLoading, setError }) {
     try {
       const statuses = {}
       
-      // Fetch latest score for each resume
       for (const resume of resumesData) {
         try {
           const scoresResponse = await axios.get(`/api/resumes/${resume._id}/scores`)
           const scores = scoresResponse.data.data || []
           
           if (scores.length > 0) {
-            // Get the most recent score
-            const latestScore = scores[0]
+            const latestScore = [...scores]
+              .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0]
             statuses[resume._id] = {
-              is_shortlisted: latestScore.is_shortlisted,
-              overall_fit: latestScore.overall_fit,
+              is_shortlisted: !!latestScore.is_shortlisted,
+              overall_fit: Number.parseFloat(latestScore.overall_fit) || 0,
+              skills_match: Number.parseFloat(latestScore.skills_match) || 0,
+              experience_relevance: Number.parseFloat(latestScore.experience_relevance) || 0,
+              education_fit: Number.parseFloat(latestScore.education_fit) || 0,
               seniority_level: latestScore.seniority_level,
               job_title: latestScore.job_title,
               timestamp: latestScore.timestamp
@@ -68,6 +84,39 @@ export default function UploadSection({ setResults, setLoading, setError }) {
       }
       
       setResumeStatuses(statuses)
+
+      try {
+        const byKey = new Map()
+        for (const r of resumesData) {
+          const s = statuses[r._id]
+          if (!s) continue
+          const key = (r.email?.toLowerCase() || '').trim() || (r.filename || '').trim() || (r.name || '').trim()
+          const item = {
+            id: r._id,
+            candidate_name: r.name || r.email || 'Unknown Candidate',
+            resumeName: r.filename || '',
+            email: r.email || '',
+            skills_match: Number(s.skills_match) || 0,
+            experience_relevance: Number(s.experience_relevance) || 0,
+            education_fit: Number(s.education_fit) || 0,
+            overall_fit: Number(s.overall_fit) || 0,
+            seniority_level: s.seniority_level || 'Unknown',
+            job_title: s.job_title || '',
+            is_shortlisted: s.is_shortlisted || (s.overall_fit >= 7.0),
+          }
+          const prev = byKey.get(key)
+          if (!prev || (item.overall_fit ?? 0) > (prev.overall_fit ?? 0)) {
+            byKey.set(key, item)
+          }
+        }
+
+        const assembled = Array.from(byKey.values()).sort((a, b) => b.overall_fit - a.overall_fit)
+
+        if (assembled.length > 0 && typeof setResults === 'function') {
+          setResults(assembled)
+        }
+      } catch (e) {
+      }
     } catch (err) {
       console.error('Error fetching resume statuses:', err)
     }
@@ -93,7 +142,7 @@ export default function UploadSection({ setResults, setLoading, setError }) {
 
   const handleJDChange = (e) => {
     setJobDescription(e.target.files[0])
-    setSelectedJDId('') // Clear selected JD when uploading new one
+    setSelectedJDId('')
   }
 
   const handleJDModeChange = (mode) => {
@@ -107,7 +156,7 @@ export default function UploadSection({ setResults, setLoading, setError }) {
 
   const handleSelectJD = (e) => {
     setSelectedJDId(e.target.value)
-    setJobDescription(null) // Clear uploaded file when selecting existing
+    setJobDescription(null) 
   }
 
   const handleSubmit = async (e) => {
@@ -140,7 +189,6 @@ export default function UploadSection({ setResults, setLoading, setError }) {
         let response
 
         if (jdMode === 'select') {
-          // Score with existing JD from database
           const formData = new FormData()
           formData.append('resume', resume)
           formData.append('jd_id', selectedJDId)
@@ -149,7 +197,6 @@ export default function UploadSection({ setResults, setLoading, setError }) {
             headers: { 'Content-Type': 'multipart/form-data' }
           })
         } else {
-          // Score with uploaded JD file
           const formData = new FormData()
           formData.append('resume', resume)
           formData.append('jd', jobDescription)
@@ -170,7 +217,6 @@ export default function UploadSection({ setResults, setLoading, setError }) {
       const sortedResults = allResults.sort((a, b) => b.overall_fit - a.overall_fit)
       setResults(sortedResults)
       
-      // Refresh the uploaded resumes list and JDs
       fetchUploadedResumes()
       fetchUploadedJDs()
     } catch (err) {
@@ -187,11 +233,15 @@ export default function UploadSection({ setResults, setLoading, setError }) {
     
     try {
       await axios.delete(`/api/resumes/${id}`)
-      fetchUploadedResumes()
+      
+      // Clear selected resume if it's the one being deleted
       if (selectedResume && selectedResume._id === id) {
         setSelectedResume(null)
         setResumeScores([])
       }
+      
+      // Refetch resumes which will auto-clear results if empty
+      await fetchUploadedResumes()
     } catch (err) {
       console.error('Error deleting resume:', err)
     }
@@ -237,20 +287,19 @@ export default function UploadSection({ setResults, setLoading, setError }) {
       )
     }
 
-    // Use the backend's is_shortlisted flag as the primary decision
-    // Scores >= 7.0 should always show as shortlisted
-    if (status.is_shortlisted || status.overall_fit >= 7.0) {
+   
+    if (status.is_shortlisted || status.overall_fit >= 7.5) {
       return (
         <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800">
           <StatusIcon type="shortlisted" className="w-4 h-4" title="Shortlisted" />
           Shortlisted
         </span>
       )
-    } else if (status.overall_fit >= 4.0) {
+    } else if (status.overall_fit >= 6.5) {
       return (
         <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-800">
-          <StatusIcon type="review" className="w-4 h-4" title="Under Review" />
-          Under Review
+          <StatusIcon type="review" className="w-4 h-4" title="Waitlisted" />
+          Waitlisted
         </span>
       )
     } else {
@@ -358,7 +407,6 @@ export default function UploadSection({ setResults, setLoading, setError }) {
             </>
           )}
 
-          {/* Select Mode */}
           {jdMode === 'select' && (
             <div>
               {loadingJDs ? (
@@ -409,7 +457,6 @@ export default function UploadSection({ setResults, setLoading, setError }) {
         </button>
       </form>
 
-      {/* Previously Uploaded Resumes Section */}
       <div className="mt-8 border-t border-slate-200 pt-6">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-semibold text-slate-900">
@@ -426,7 +473,6 @@ export default function UploadSection({ setResults, setLoading, setError }) {
           </button>
         </div>
 
-        {/* Status Summary */}
         {uploadedResumes.length > 0 && Object.keys(resumeStatuses).length > 0 && (
           <div className="grid grid-cols-4 gap-3 mb-4">
             <div className="bg-slate-50 rounded-lg p-3 border border-slate-200">
@@ -444,11 +490,11 @@ export default function UploadSection({ setResults, setLoading, setError }) {
             </div>
             <div className="bg-yellow-50 rounded-lg p-3 border border-yellow-200">
               <p className="text-xs text-yellow-700 font-medium mb-1 inline-flex items-center gap-1">
-                <span className="text-yellow-700"><StatusIcon type="review" className="w-4 h-4" title="Under Review" /></span>
-                Under Review
+                <span className="text-yellow-700"><StatusIcon type="review" className="w-4 h-4" title="Waitlisted" /></span>
+                Waitlisted
               </p>
               <p className="text-2xl font-bold text-yellow-800">
-                {Object.values(resumeStatuses).filter(s => !s.is_shortlisted && s.overall_fit >= 4.0 && s.overall_fit < 7.0).length}
+                {Object.values(resumeStatuses).filter(s => !s.is_shortlisted && s.overall_fit >= 6.5 && s.overall_fit < 7.5).length}
               </p>
             </div>
             <div className="bg-red-50 rounded-lg p-3 border border-red-200">
@@ -457,7 +503,7 @@ export default function UploadSection({ setResults, setLoading, setError }) {
                 Rejected
               </p>
               <p className="text-2xl font-bold text-red-800">
-                {Object.values(resumeStatuses).filter(s => s.overall_fit < 4.0).length}
+                {Object.values(resumeStatuses).filter(s => s.overall_fit < 6.5).length}
               </p>
             </div>
           </div>
@@ -537,11 +583,9 @@ export default function UploadSection({ setResults, setLoading, setError }) {
         )}
       </div>
 
-      {/* Stats Modal */}
       {selectedResume && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
-            {/* Modal Header */}
             <div className="flex items-center justify-between p-6 border-b border-slate-200">
               <div>
                 <h3 className="text-xl font-semibold text-slate-900">
@@ -561,7 +605,6 @@ export default function UploadSection({ setResults, setLoading, setError }) {
               </button>
             </div>
 
-            {/* Modal Body */}
             <div className="p-6 overflow-y-auto max-h-[calc(90vh-140px)]">
               {loadingScores ? (
                 <div className="text-center py-12">
@@ -604,7 +647,6 @@ export default function UploadSection({ setResults, setLoading, setError }) {
                     </div>
                   </div>
 
-                  {/* Detailed Scores */}
                   <div>
                     <h4 className="text-lg font-semibold text-slate-900 mb-4">Scoring History</h4>
                     <div className="space-y-4">
@@ -627,7 +669,6 @@ export default function UploadSection({ setResults, setLoading, setError }) {
                             </div>
                           </div>
 
-                          {/* Score Breakdown */}
                           <div className="grid grid-cols-3 gap-4 mb-4">
                             <div>
                               <div className="flex items-center justify-between mb-1">
@@ -667,7 +708,6 @@ export default function UploadSection({ setResults, setLoading, setError }) {
                             </div>
                           </div>
 
-                          {/* Justification */}
                           {score.justification && (
                             <div className="bg-white rounded-lg p-4 border border-slate-200">
                               <p className="text-xs font-medium text-slate-500 uppercase mb-2">AI Analysis</p>

@@ -29,7 +29,6 @@ function StatusIcon({ type, className = 'w-4 h-4', title, variant = 'stroke' }) 
     )
   }
 
-  // rejected
   return (
     <svg viewBox="0 0 24 24" className={className} aria-hidden role="img">
       <path d="M8.5 8.5l7 7m0-7l-7 7" {...strokeProps} />

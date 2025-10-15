@@ -10,7 +10,6 @@ export default function Landing() {
 
   return (
     <div style={{ position: 'relative', width: '100vw', height: '100vh', overflow: 'hidden', background: '#0a0a0a' }}>
-      {/* Credits Badge */}
       <div style={{
         position: 'absolute',
         top: '24px',

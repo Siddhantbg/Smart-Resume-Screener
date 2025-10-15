@@ -171,9 +171,47 @@ def calculate_experience_score(resume_data: Dict[str, Any], jd_data: Dict[str, A
     
     return score, details
 
+def extract_marks_with_gemini(education_text: str) -> Tuple[float, str]:
+    """Use Gemini to extract academic marks if regex fails."""
+    try:
+        if not check_gemini_configured():
+            return None, None
+        
+        model = genai.GenerativeModel('gemini-2.0-flash-exp')
+        
+        prompt = f"""Extract the HIGHEST academic performance score from this education text.
+
+Education text: {education_text}
+
+Return ONLY a single line in this exact format:
+TYPE: VALUE
+
+Where TYPE is either "CGPA" or "PERCENTAGE" and VALUE is the numeric score.
+Examples:
+- CGPA: 9.2
+- PERCENTAGE: 92.5
+
+If no score found, return: NONE"""
+        
+        response = model.generate_content(prompt)
+        result = response.text.strip()
+        
+        if 'CGPA:' in result:
+            value = float(result.split('CGPA:')[1].strip())
+            return value, 'CGPA'
+        elif 'PERCENTAGE:' in result:
+            value = float(result.split('PERCENTAGE:')[1].strip())
+            return value, 'PERCENTAGE'
+        
+        return None, None
+        
+    except Exception as e:
+        log_api_call(f"Gemini marks extraction failed: {e}")
+        return None, None
+
 def calculate_education_score(resume_data: Dict[str, Any], jd_data: Dict[str, Any]) -> Tuple[float, Dict[str, Any]]:
     """
-    Calculate education fit score considering academic performance and field relevance.
+    Calculate education fit score with fine-grained academic performance differentiation.
     
     Returns:
         Tuple of (score, details_dict)
@@ -182,57 +220,204 @@ def calculate_education_score(resume_data: Dict[str, Any], jd_data: Dict[str, An
     qualifications = [q.lower() for q in jd_data.get('qualifications', [])]
     
     if education == 'Not specified' or education.lower() == 'unknown':
-        return 4.0, {'reason': 'Education not specified'}
+        return 4.0, {'reason': 'Education not specified', 'academic_performance': 0, 'has_tech_degree': False, 'degree_level': 'Unknown'}
     
     education_lower = education.lower()
     
-    cgpa_match = re.search(r'cgpa[:\s-]*(\d+\.?\d*)', education_lower)
-    percentage_match = re.search(r'(\d{2,3}\.?\d*)%', education_lower)
+    # Extract CGPA or percentage with improved patterns
+    cgpa_patterns = [
+        r'cgpa[\s:=\-]*(\d+\.?\d*)\s*/?\s*(?:10|4)',
+        r'cgpa[\s:=\-]*(\d+\.?\d*)',
+        r'gpa[\s:=\-]*(\d+\.?\d*)\s*/?\s*(?:10|4)',
+        r'gpa[\s:=\-]*(\d+\.?\d*)',
+        r'aggregate[\s:=\-]*(\d+\.?\d*)\s*cgpa',
+        r'overall[\s:=\-]*(\d+\.?\d*)\s*cgpa'
+    ]
     
-    academic_score = 5.0
-    if cgpa_match:
-        cgpa = float(cgpa_match.group(1))
-        if cgpa >= 9.0:
-            academic_score = 10.0
-        elif cgpa >= 8.0:
-            academic_score = 8.5
-        elif cgpa >= 7.0:
-            academic_score = 7.0
-        elif cgpa >= 6.0:
-            academic_score = 5.5
-    elif percentage_match:
-        percentage = float(percentage_match.group(1))
-        if percentage >= 90:
-            academic_score = 10.0
-        elif percentage >= 80:
-            academic_score = 8.5
-        elif percentage >= 70:
-            academic_score = 7.0
-        elif percentage >= 60:
-            academic_score = 5.5
+    percentage_patterns = [
+        r'(\d{2,3}\.\d+)\s*%',
+        r'(\d{2,3})\.(\d+)\s*%',
+        r'(\d{2,3})\s*%',
+        r'percentage[\s:=\-]*(\d{2,3}\.?\d*)',
+        r'marks[\s:=\-]*(\d{2,3}\.?\d*)',
+        r'aggregate[\s:=\-]*(\d{2,3}\.?\d*)\s*%',
+        r'overall[\s:=\-]*(\d{2,3}\.?\d*)\s*%'
+    ]
     
-    tech_degrees = ['computer', 'software', 'information technology', 'it ', 'engineering', 'cs ', 'computer science']
+    academic_score = 5.0  # default
+    academic_value = None
+    academic_type = None
+    
+    # Try to extract CGPA first
+    for pattern in cgpa_patterns:
+        cgpa_match = re.search(pattern, education_lower)
+        if cgpa_match:
+            cgpa = float(cgpa_match.group(1))
+            # Normalize if CGPA is out of 4 or other scale
+            if cgpa <= 4.5:
+                cgpa = (cgpa / 4.0) * 10.0
+            elif cgpa > 10:
+                cgpa = 10.0
+            
+            academic_value = cgpa
+            academic_type = 'CGPA'
+            
+            # Fine-grained scoring with 0.1 precision
+            if cgpa >= 9.5:
+                academic_score = 10.0
+            elif cgpa >= 9.0:
+                academic_score = 9.5
+            elif cgpa >= 8.5:
+                academic_score = 9.0
+            elif cgpa >= 8.0:
+                academic_score = 8.5
+            elif cgpa >= 7.5:
+                academic_score = 7.8
+            elif cgpa >= 7.0:
+                academic_score = 7.2
+            elif cgpa >= 6.5:
+                academic_score = 6.5
+            elif cgpa >= 6.0:
+                academic_score = 5.8
+            elif cgpa >= 5.5:
+                academic_score = 5.0
+            else:
+                academic_score = max(3.0, cgpa * 0.8)
+            break
+    
+    # Try percentage if CGPA not found
+    if not academic_value:
+        for pattern in percentage_patterns:
+            percentage_match = re.search(pattern, education_lower)
+            if percentage_match:
+                if len(percentage_match.groups()) > 1 and percentage_match.group(2):
+                    percentage = float(f"{percentage_match.group(1)}.{percentage_match.group(2)}")
+                else:
+                    percentage = float(percentage_match.group(1))
+                
+                academic_value = percentage
+                academic_type = 'Percentage'
+                
+                # Fine-grained scoring
+                if percentage >= 95:
+                    academic_score = 10.0
+                elif percentage >= 90:
+                    academic_score = 9.5
+                elif percentage >= 85:
+                    academic_score = 9.0
+                elif percentage >= 80:
+                    academic_score = 8.5
+                elif percentage >= 75:
+                    academic_score = 7.8
+                elif percentage >= 70:
+                    academic_score = 7.0
+                elif percentage >= 65:
+                    academic_score = 6.2
+                elif percentage >= 60:
+                    academic_score = 5.5
+                elif percentage >= 55:
+                    academic_score = 4.8
+                else:
+                    academic_score = max(3.0, percentage / 15.0)
+                break
+    
+    # If still no academic value found, try Gemini as last resort
+    if not academic_value:
+        log_api_call(f"Regex failed to extract marks, trying Gemini for: {education[:100]}")
+        gemini_value, gemini_type = extract_marks_with_gemini(education)
+        
+        if gemini_value and gemini_type:
+            if gemini_type == 'CGPA':
+                cgpa = gemini_value
+                if cgpa <= 4.5:
+                    cgpa = (cgpa / 4.0) * 10.0
+                elif cgpa > 10:
+                    cgpa = 10.0
+                
+                academic_value = cgpa
+                academic_type = 'CGPA (Gemini)'
+                
+                if cgpa >= 9.5:
+                    academic_score = 10.0
+                elif cgpa >= 9.0:
+                    academic_score = 9.5
+                elif cgpa >= 8.5:
+                    academic_score = 9.0
+                elif cgpa >= 8.0:
+                    academic_score = 8.5
+                elif cgpa >= 7.5:
+                    academic_score = 7.8
+                elif cgpa >= 7.0:
+                    academic_score = 7.2
+                elif cgpa >= 6.5:
+                    academic_score = 6.5
+                elif cgpa >= 6.0:
+                    academic_score = 5.8
+                elif cgpa >= 5.5:
+                    academic_score = 5.0
+                else:
+                    academic_score = max(3.0, cgpa * 0.8)
+                    
+            elif gemini_type == 'PERCENTAGE':
+                percentage = gemini_value
+                academic_value = percentage
+                academic_type = 'Percentage (Gemini)'
+                
+                if percentage >= 95:
+                    academic_score = 10.0
+                elif percentage >= 90:
+                    academic_score = 9.5
+                elif percentage >= 85:
+                    academic_score = 9.0
+                elif percentage >= 80:
+                    academic_score = 8.5
+                elif percentage >= 75:
+                    academic_score = 7.8
+                elif percentage >= 70:
+                    academic_score = 7.0
+                elif percentage >= 65:
+                    academic_score = 6.2
+                elif percentage >= 60:
+                    academic_score = 5.5
+                elif percentage >= 55:
+                    academic_score = 4.8
+                else:
+                    academic_score = max(3.0, percentage / 15.0)
+            
+            log_api_call(f"Gemini extracted: {gemini_type} = {gemini_value}, score = {academic_score}")
+    
+    # Field relevance
+    tech_degrees = ['computer', 'software', 'information technology', 'it ', 'engineering', 'cs ', 'computer science', 'cse', 'ece', 'electrical']
     has_tech_degree = any(degree in education_lower for degree in tech_degrees)
     
-    has_bachelors = 'bachelor' in education_lower or 'b.tech' in education_lower or 'b.e.' in education_lower
-    has_masters = 'master' in education_lower or 'm.tech' in education_lower or 'm.s.' in education_lower
+    # Degree level
+    has_bachelors = any(deg in education_lower for deg in ['bachelor', 'b.tech', 'b.e.', 'btech', 'be ', 'b.sc', 'bca'])
+    has_masters = any(deg in education_lower for deg in ['master', 'm.tech', 'm.e.', 'mtech', 'me ', 'm.sc', 'mca', 'ms '])
+    has_phd = 'phd' in education_lower or 'doctorate' in education_lower
     
-    if has_masters:
-        degree_bonus = 1.5
+    # Degree multiplier with finer gradations
+    if has_phd:
+        degree_multiplier = 1.4
+    elif has_masters:
+        degree_multiplier = 1.3
     elif has_bachelors:
-        degree_bonus = 1.0
+        degree_multiplier = 1.0
     else:
-        degree_bonus = 0.5
+        degree_multiplier = 0.6
     
-    field_bonus = 1.0 if has_tech_degree else 0.7
+    # Field multiplier
+    field_multiplier = 1.0 if has_tech_degree else 0.75
     
-    final_score = min(10, academic_score * field_bonus * degree_bonus / 1.5)
+    # Combine with multiplicative scaling
+    final_score = min(10.0, academic_score * field_multiplier * degree_multiplier / 1.2)
     
     details = {
-        'academic_performance': round(academic_score, 1),
+        'academic_performance': round(academic_score, 2),
+        'academic_value': academic_value,
+        'academic_type': academic_type,
         'has_tech_degree': has_tech_degree,
-        'degree_level': 'Masters' if has_masters else 'Bachelors' if has_bachelors else 'Other',
-        'education_text': education[:100]
+        'degree_level': 'PhD' if has_phd else 'Masters' if has_masters else 'Bachelors' if has_bachelors else 'Other',
+        'education_text': education[:150]
     }
     
     return final_score, details
@@ -268,55 +453,85 @@ def generate_justification(
     exp_details = scores['experience_details']
     edu_details = scores['education_details']
     
-    justification_parts = []
+    # Build paragraph-style analysis
+    analysis_parts = []
     
+    # Opening statement
     if is_shortlisted:
-        justification_parts.append(f"**SHORTLISTED** - {name} is a strong fit for {job_title}.")
+        analysis_parts.append(f"**SHORTLISTED** - {name} is a strong fit for the {job_title} position.")
     else:
-        justification_parts.append(f"**NOT SHORTLISTED** - {name} does not meet minimum requirements for {job_title}.")
+        analysis_parts.append(f"**NOT SHORTLISTED** - {name} does not meet the minimum requirements for the {job_title} role.")
     
-    justification_parts.append(f"\n**Seniority Level:** {seniority.title()}")
-    justification_parts.append(f"**Overall Score:** {scores['overall_fit']:.1f}/10")
+    # Overview
+    analysis_parts.append(f"This is an {seniority.title()} level position, and the candidate achieved an overall score of {scores['overall_fit']:.2f}/10.")
     
-    justification_parts.append(f"\n**Skills Match ({scores['skills_match']:.1f}/10):**")
+    # Skills paragraph
+    skills_text = f"**Skills Match ({scores['skills_match']:.2f}/10):** "
     if skill_details['matched']:
-        justification_parts.append(f"✓ Matched skills: {', '.join(skill_details['matched'][:5])}")
+        skills_text += f"The candidate demonstrates proficiency in {', '.join(skill_details['matched'][:5])}"
+        if len(skill_details['matched']) > 5:
+            skills_text += f" and {len(skill_details['matched']) - 5} more skills"
+        skills_text += f", achieving a {skill_details['match_ratio']}% match ratio. "
+    else:
+        skills_text += f"The candidate shows limited skill alignment with a {skill_details['match_ratio']}% match ratio. "
+    
     if skill_details['critical_missing']:
-        justification_parts.append(f"✗ Missing critical skills: {', '.join(skill_details['critical_missing'])}")
+        skills_text += f"However, critical skills are missing: {', '.join(skill_details['critical_missing'])}. "
     elif skill_details['missing']:
-        justification_parts.append(f"• Missing: {', '.join(skill_details['missing'][:3])}")
-    justification_parts.append(f"• Match ratio: {skill_details['match_ratio']}%")
+        skills_text += f"Some desirable skills could be improved: {', '.join(skill_details['missing'][:3])}. "
     
-    justification_parts.append(f"\n**Experience ({scores['experience_relevance']:.1f}/10):**")
+    analysis_parts.append(skills_text.strip())
+    
+    # Experience paragraph
+    exp_text = f"**Experience ({scores['experience_relevance']:.2f}/10):** "
+    exp_details_list = []
     if exp_details['resume_years'] > 0:
-        justification_parts.append(f"• {exp_details['resume_years']} years of experience")
+        exp_details_list.append(f"{exp_details['resume_years']} years of relevant experience")
     if exp_details['has_internship']:
-        justification_parts.append(f"• Has internship experience")
+        exp_details_list.append("internship background")
+    
+    if exp_details_list:
+        exp_text += f"The candidate brings {' and '.join(exp_details_list)}. "
+    else:
+        exp_text += "The candidate has limited documented work experience. "
+    
     if exp_details['required_years'] > 0:
-        justification_parts.append(f"• Required: {exp_details['required_years']}+ years")
+        exp_text += f"The role requires {exp_details['required_years']}+ years of experience. "
     
-    justification_parts.append(f"\n**Education ({scores['education_fit']:.1f}/10):**")
-    justification_parts.append(f"• {edu_details.get('degree_level', 'Unknown')} degree")
+    analysis_parts.append(exp_text.strip())
+    
+    # Education paragraph
+    edu_text = f"**Education ({scores['education_fit']:.2f}/10):** "
+    edu_text += f"The candidate holds a {edu_details.get('degree_level', 'Unknown')} degree"
+    
     if edu_details.get('has_tech_degree'):
-        justification_parts.append(f"• Technical field (CS/IT/Engineering)")
-    if edu_details.get('academic_performance', 0) >= 8:
-        justification_parts.append(f"• Strong academic performance ({edu_details['academic_performance']:.1f}/10)")
+        edu_text += " in a technical field (CS/IT/Engineering)"
     
+    edu_text += ". "
+    
+    if edu_details.get('academic_performance', 0) >= 8:
+        edu_text += f"Academic performance is strong with a score of {edu_details['academic_performance']:.1f}/10. "
+    elif edu_details.get('academic_performance', 0) > 0:
+        edu_text += f"Academic performance is moderate with a score of {edu_details['academic_performance']:.1f}/10. "
+    
+    analysis_parts.append(edu_text.strip())
+    
+    # Rejection reasons paragraph
     if not is_shortlisted:
         rejection_reasons = []
-        if scores['overall_fit'] < 4.0:
-            rejection_reasons.append("Overall fit below minimum threshold (40%)")
+        if scores['overall_fit'] < 6.5:
+            rejection_reasons.append("overall fit score is below the acceptance threshold")
         if skill_details['critical_missing']:
-            rejection_reasons.append(f"Missing critical skills: {', '.join(skill_details['critical_missing'])}")
+            rejection_reasons.append(f"missing critical skills ({', '.join(skill_details['critical_missing'])})")
         if seniority == 'senior' and scores['experience_relevance'] < 5.0:
-            rejection_reasons.append("Insufficient experience for senior role")
+            rejection_reasons.append("insufficient experience for a senior-level role")
         
         if rejection_reasons:
-            justification_parts.append(f"\n**Rejection Reasons:**")
-            for reason in rejection_reasons:
-                justification_parts.append(f"• {reason}")
+            rejection_text = "**Rejection Reasons:** The candidate was not shortlisted because "
+            rejection_text += ", ".join(rejection_reasons) + "."
+            analysis_parts.append(rejection_text)
     
-    return "\n".join(justification_parts)
+    return "\n\n".join(analysis_parts)
 
 def get_detailed_score(resume_data: Dict[str, Any], jd_data: Dict[str, Any]) -> Dict[str, Any]:
     """
@@ -340,21 +555,18 @@ def get_detailed_score(resume_data: Dict[str, Any], jd_data: Dict[str, Any]) -> 
             skill_weight, exp_weight, edu_weight
         )
         
-        # Improved shortlisting logic:
-        # - Score >= 7.0 (70%): Auto-shortlist regardless of minor gaps
-        # - Score >= 6.0 (60%): Shortlist if no critical missing skills
-        # - Score >= 4.0 (40%): Shortlist if no critical missing AND good skill match
-        # - Score < 4.0: Auto-reject
-        if overall_score >= 7.0:
-            is_shortlisted = True  # High performers get auto-shortlisted
-        elif overall_score >= 6.0:
-            is_shortlisted = not skill_details['critical_missing']  # Good scores need no critical gaps
-        elif overall_score >= 4.0:
-            # Borderline scores need both no critical gaps AND decent skill match
-            is_shortlisted = not skill_details['critical_missing'] and skill_score >= 5.0
+        # Stricter shortlisting criteria: 7.5+ to be shortlisted
+        # Most candidates will be rejected, very few waitlisted
+        if overall_score >= 7.5:
+            # Only top performers get shortlisted
+            is_shortlisted = True  
+        elif overall_score >= 7.0:
+            # High scorers need no critical skill gaps to be shortlisted
+            is_shortlisted = not skill_details['critical_missing']
         else:
-            is_shortlisted = False  # Below threshold = auto-reject
-        
+            # Everyone below 7.0 is NOT shortlisted (waitlist or reject based on score)
+            is_shortlisted = False  
+
         justification = generate_justification(
             resume_data, jd_data,
             {
@@ -371,10 +583,10 @@ def get_detailed_score(resume_data: Dict[str, Any], jd_data: Dict[str, Any]) -> 
         )
         
         result = {
-            'skills_match': round(skill_score, 1),
-            'experience_relevance': round(experience_score, 1),
-            'education_fit': round(education_score, 1),
-            'overall_fit': round(overall_score, 1),
+            'skills_match': round(skill_score, 2),
+            'experience_relevance': round(experience_score, 2),
+            'education_fit': round(education_score, 2),
+            'overall_fit': round(overall_score, 2),
             'justification': justification,
             'is_shortlisted': is_shortlisted,
             'seniority_level': seniority,

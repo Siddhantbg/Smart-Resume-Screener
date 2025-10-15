@@ -13,13 +13,13 @@ export default function Analytics({ refreshTrigger }) {
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    fetchAnalytics(true); // Initial load with loading state
+    fetchAnalytics(true); 
   }, [refreshTrigger]);
 
   useEffect(() => {
     const intervalId = setInterval(() => {
-      fetchAnalytics(false); // Background refresh without loading state
-    }, 30000); // Increased to 30 seconds to reduce interruptions
+      fetchAnalytics(false); 
+    }, 30000); 
     
     return () => clearInterval(intervalId);
   }, []);
@@ -163,7 +163,6 @@ export default function Analytics({ refreshTrigger }) {
       <div className="bg-white border border-gray-200 rounded-lg p-6">
         <h3 className="text-lg font-semibold text-gray-800 mb-4">Most Requested Roles</h3>
         
-        {/* Warning for "Not specified" data */}
         {analytics.most_requested_roles.some(role => role.role === "Not specified") && (
           <div className="mb-4 bg-yellow-50 border border-yellow-200 rounded-lg p-4">
             <div className="flex items-start gap-3">

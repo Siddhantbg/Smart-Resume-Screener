@@ -1,6 +1,4 @@
-/* Dark Theme Overrides for Smart Resume Screener */
 
-/* White backgrounds -> Dark glass with subtle color tint */
 .bg-white {
   background: linear-gradient(135deg, rgba(59, 130, 246, 0.08), rgba(139, 92, 246, 0.08)) !important;
   backdrop-filter: blur(12px) !important;
@@ -8,19 +6,16 @@
   box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
 }
 
-/* Slate backgrounds -> Darker glass with subtle purple tint */
 .bg-slate-50, .bg-slate-100 {
   background: rgba(139, 92, 246, 0.06) !important;
   backdrop-filter: blur(8px) !important;
   border-color: rgba(139, 92, 246, 0.15) !important;
 }
 
-/* Slate borders */
 .border-slate-200, .border-slate-300 {
   border-color: rgba(255, 255, 255, 0.15) !important;
 }
 
-/* Text colors */
 .text-slate-900, .text-slate-800, .text-slate-700, .text-gray-900, .text-gray-800, .text-gray-700 {
   color: rgba(255, 255, 255, 0.95) !important;
 }
@@ -33,7 +28,6 @@
   color: rgba(255, 255, 255, 0.5) !important;
 }
 
-/* Success colors (green) - keep vibrant */
 .bg-green-50 {
   background: rgba(34, 197, 94, 0.2) !important;
   backdrop-filter: blur(8px) !important;
@@ -52,7 +46,6 @@
   color: rgb(134, 239, 172) !important;
 }
 
-/* Warning colors (yellow) - keep vibrant */
 .bg-yellow-50 {
   background: rgba(234, 179, 8, 0.2) !important;
   backdrop-filter: blur(8px) !important;
@@ -71,7 +64,6 @@
   color: rgb(253, 224, 71) !important;
 }
 
-/* Error/Danger colors (red) - keep vibrant */
 .bg-red-50 {
   background: rgba(239, 68, 68, 0.15) !important;
   backdrop-filter: blur(8px) !important;
@@ -89,7 +81,6 @@
   color: rgb(252, 165, 165) !important;
 }
 
-/* Info/Primary colors (blue/purple) */
 .bg-blue-50 {
   background: linear-gradient(135deg, rgba(59, 130, 246, 0.2), rgba(139, 92, 246, 0.15)) !important;
   backdrop-filter: blur(8px) !important;
@@ -108,17 +99,14 @@
   color: rgb(147, 197, 253) !important;
 }
 
-/* Purple colors */
 .text-purple-900, .text-purple-800, .text-purple-700, .text-purple-600 {
   color: rgb(196, 181, 253) !important;
 }
 
-/* Orange colors */
 .text-orange-900, .text-orange-800, .text-orange-700, .text-orange-600 {
   color: rgb(253, 186, 116) !important;
 }
 
-/* Primary button colors */
 .bg-blue-500 {
   background: linear-gradient(135deg, rgba(59, 130, 246, 0.3), rgba(139, 92, 246, 0.3)) !important;
   backdrop-filter: blur(12px) !important;
@@ -133,7 +121,6 @@
   transform: translateY(-1px);
 }
 
-/* Progress bars */
 .bg-slate-200 {
   background: rgba(255, 255, 255, 0.1) !important;
 }
@@ -153,7 +140,6 @@
   box-shadow: 0 0 8px rgba(168, 85, 247, 0.5) !important;
 }
 
-/* Hover states */
 .hover\:bg-slate-100:hover, .hover\:bg-slate-200:hover {
   background: rgba(139, 92, 246, 0.12) !important;
   box-shadow: 0 2px 8px rgba(139, 92, 246, 0.15) !important;
@@ -169,12 +155,10 @@
   box-shadow: 0 2px 8px rgba(239, 68, 68, 0.25) !important;
 }
 
-/* Shadow adjustments for dark theme */
 .shadow-sm, .shadow, .shadow-md, .shadow-lg, .shadow-xl {
   box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4) !important;
 }
 
-/* File input styling */
 input[type="file"] {
   color: rgba(255, 255, 255, 0.9) !important;
 }
@@ -194,7 +178,6 @@ input[type="file"]::file-selector-button:hover {
   transform: translateY(-1px);
 }
 
-/* Select dropdowns */
 select {
   background: rgba(255, 255, 255, 0.08) !important;
   color: rgba(255, 255, 255, 0.9) !important;
@@ -206,7 +189,6 @@ select option {
   color: rgba(255, 255, 255, 0.9) !important;
 }
 
-/* Chart text (Recharts) */
 .recharts-text, .recharts-label, .recharts-cartesian-axis-tick-value {
   fill: rgba(255, 255, 255, 0.9) !important;
 }
@@ -215,7 +197,6 @@ select option {
   color: rgba(255, 255, 255, 0.9) !important;
 }
 
-/* Recharts tooltip */
 .recharts-tooltip-wrapper {
   outline: none !important;
 }
@@ -235,16 +216,11 @@ select option {
   color: rgba(255, 255, 255, 0.85) !important;
 }
 
-/* Chart grid lines */
 .recharts-cartesian-grid-horizontal line,
 .recharts-cartesian-grid-vertical line {
   stroke: rgba(255, 255, 255, 0.1) !important;
 }
 
-/* ========================= */
-/* Database tab: lists/cards */
-/* ========================= */
-/* White-ish list items -> dark glass */
 .bg-gray-50 {
   background: linear-gradient(135deg, rgba(59, 130, 246, 0.06), rgba(139, 92, 246, 0.06)) !important;
   backdrop-filter: blur(10px) !important;
@@ -255,7 +231,6 @@ select option {
   border-color: rgba(139, 92, 246, 0.25) !important;
 }
 
-/* Strengthen list item visuals */
 .space-y-2 > div {
   background: linear-gradient(135deg, rgba(59, 130, 246, 0.06), rgba(139, 92, 246, 0.06)) !important;
   border-color: rgba(139, 92, 246, 0.25) !important;
@@ -267,7 +242,6 @@ select option {
   box-shadow: 0 4px 16px rgba(139, 92, 246, 0.2) !important;
 }
 
-/* Ensure inner text remains readable */
 .bg-gray-50 .text-gray-800 {
   color: rgba(255, 255, 255, 0.95) !important;
 }
@@ -279,7 +253,6 @@ select option {
   color: rgba(255, 255, 255, 0.65) !important;
 }
 
-/* Table styling fixes */
 table tbody {
   background: transparent !important;
 }
@@ -293,7 +266,6 @@ table tbody tr:hover {
   box-shadow: 0 0 16px rgba(139, 92, 246, 0.2) !important;
 }
 
-/* Shortlisted row styling */
 table tbody tr.bg-green-50 {
   background: rgba(34, 197, 94, 0.2) !important;
   border-left-color: rgb(34, 197, 94) !important;
@@ -304,7 +276,6 @@ table tbody tr.bg-green-50:hover {
   box-shadow: 0 0 16px rgba(34, 197, 94, 0.3) !important;
 }
 
-/* Table cell text */
 table td {
   color: rgba(255, 255, 255, 0.9) !important;
 }
@@ -314,7 +285,6 @@ table th {
   background: rgba(139, 92, 246, 0.1) !important;
 }
 
-/* Table borders */
 table {
   border-color: rgba(139, 92, 246, 0.2) !important;
 }
@@ -323,14 +293,12 @@ table {
   border-color: rgba(255, 255, 255, 0.1) !important;
 }
 
-/* Most Requested Roles section fix */
 .bg-yellow-50.border-yellow-200 {
   background: rgba(234, 179, 8, 0.2) !important;
   border-color: rgba(234, 179, 8, 0.4) !important;
   backdrop-filter: blur(8px) !important;
 }
 
-/* Role badge in most requested section */
 .bg-blue-100.text-blue-800,
 .bg-purple-100.text-purple-800,
 .bg-green-100.text-green-800,
@@ -344,7 +312,6 @@ table {
   padding: 0.25rem 0.75rem !important;
 }
 
-/* Specific color badges */
 .text-blue-800 {
   color: rgb(147, 197, 253) !important;
 }
@@ -361,7 +328,6 @@ table {
   color: rgb(165, 180, 252) !important;
 }
 
-/* Database tab - Resume/Score cards */
 .space-y-4 > div {
   background: linear-gradient(135deg, rgba(59, 130, 246, 0.08), rgba(139, 92, 246, 0.08)) !important;
   backdrop-filter: blur(12px) !important;
@@ -369,7 +335,6 @@ table {
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3) !important;
 }
 
-/* Delete buttons in database */
 .bg-red-500, .bg-red-600 {
   background: rgba(239, 68, 68, 0.8) !important;
   border: 1px solid rgba(239, 68, 68, 0.4) !important;
@@ -381,7 +346,6 @@ table {
   box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4) !important;
 }
 
-/* Tab navigation in Database */
 button[class*="border-b-2"] {
   color: rgba(255, 255, 255, 0.7) !important;
   border-bottom: 2px solid transparent !important;

@@ -9,7 +9,7 @@ export default function ResultsTable({ results }) {
   }
 
   const getScoreBadge = (score) => {
-    const rounded = Math.round(score * 10) / 10
+    const rounded = Number.isFinite(score) ? Number(score).toFixed(2) : '0.00'
     return (
       <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold ${getScoreColor(score)}`}>
         {rounded}/10
@@ -17,7 +17,17 @@ export default function ResultsTable({ results }) {
     )
   }
 
-  const shortlistedCandidates = results.filter(r => r.is_shortlisted === true)
+  const seen = new Map()
+  for (const r of results || []) {
+    const key = r.id || `${(r.candidate_name || '').toLowerCase()}|${r.resumeName || ''}`
+    const prev = seen.get(key)
+    if (!prev || ((r.overall_fit ?? 0) > (prev.overall_fit ?? 0))) {
+      seen.set(key, r)
+    }
+  }
+  const rows = Array.from(seen.values()).sort((a, b) => (b.overall_fit ?? 0) - (a.overall_fit ?? 0))
+
+  const shortlistedCandidates = rows.filter(r => r.is_shortlisted === true)
   const shortlistedCount = shortlistedCandidates.length
 
   return (
@@ -58,8 +68,7 @@ export default function ResultsTable({ results }) {
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-slate-200">
-            {results.map((result, index) => {
-              // Improved logic: scores >= 7.0 are always shortlisted
+            {rows.map((result, index) => {
               const isShortlisted = result.is_shortlisted === true || result.overall_fit >= 7.0
               const seniority = result.seniority_level || 'mid'
               return (
@@ -94,7 +103,7 @@ export default function ResultsTable({ results }) {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`inline-flex items-center px-4 py-1.5 rounded-full text-sm font-bold ${getScoreColor(result.overall_fit)}`}>
-                      {Math.round(result.overall_fit * 10) / 10}/10
+                      {Number.isFinite(result.overall_fit) ? Number(result.overall_fit).toFixed(2) : '0.00'}/10
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
@@ -103,10 +112,10 @@ export default function ResultsTable({ results }) {
                         <StatusIcon type="shortlisted" className="w-4 h-4" title="Shortlisted" />
                         Shortlisted
                       </span>
-                    ) : result.overall_fit >= 4 ? (
+                    ) : result.overall_fit >= 6.5 ? (
                       <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-800">
-                        <StatusIcon type="review" className="w-4 h-4" title="Review Needed" />
-                        Review Needed
+                        <StatusIcon type="review" className="w-4 h-4" title="Waitlisted" />
+                        Waitlisted
                       </span>
                     ) : (
                       <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-800">

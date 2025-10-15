@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import UploadSection from '../components/UploadSection'
 import ResultsTable from '../components/ResultsTable'
 import ScoreCard from '../components/ScoreCard'
@@ -12,6 +12,42 @@ function Home() {
   const [viewMode, setViewMode] = useState('table')
   const [activeTab, setActiveTab] = useState('upload')
   const [analyticsRefreshTrigger, setAnalyticsRefreshTrigger] = useState(0)
+
+  const RESULTS_KEY = 'srs:lastResults:v1'
+  const VIEWMODE_KEY = 'srs:viewMode:v1'
+
+  useEffect(() => {
+    try {
+      const cached = localStorage.getItem(RESULTS_KEY)
+      if (cached) {
+        const parsed = JSON.parse(cached)
+        if (parsed && Array.isArray(parsed.results)) {
+          setResults(parsed.results)
+        }
+      }
+    } catch {}
+
+    try {
+      const cachedView = localStorage.getItem(VIEWMODE_KEY)
+      if (cachedView === 'table' || cachedView === 'card') {
+        setViewMode(cachedView)
+      }
+    } catch {}
+  }, [])
+
+  const handleSetResults = (newResults) => {
+    setResults(newResults)
+    try {
+      localStorage.setItem(RESULTS_KEY, JSON.stringify({ ts: Date.now(), results: newResults }))
+    } catch {}
+  }
+
+  const handleSetViewMode = (mode) => {
+    setViewMode(mode)
+    try {
+      localStorage.setItem(VIEWMODE_KEY, mode)
+    } catch {}
+  }
 
   return (
     <div className="min-h-screen" style={{ background: '#0a0a0a' }}>
@@ -82,7 +118,7 @@ function Home() {
         {activeTab === 'upload' ? (
           <>
             <UploadSection 
-              setResults={setResults}
+              setResults={handleSetResults}
               setLoading={setLoading}
               setError={setError}
             />
@@ -113,7 +149,7 @@ function Home() {
                   </h2>
                   <div className="flex gap-2">
                     <button
-                      onClick={() => setViewMode('table')}
+                      onClick={() => handleSetViewMode('table')}
                       className="px-4 py-2 rounded-lg font-medium transition"
                       style={viewMode === 'table' ? {
                         background: 'rgba(255, 255, 255, 0.15)',
@@ -129,7 +165,7 @@ function Home() {
                       Table View
                     </button>
                     <button
-                      onClick={() => setViewMode('card')}
+                      onClick={() => handleSetViewMode('card')}
                       className="px-4 py-2 rounded-lg font-medium transition"
                       style={viewMode === 'card' ? {
                         background: 'rgba(255, 255, 255, 0.15)',

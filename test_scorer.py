@@ -13,7 +13,6 @@ from llm_scorer import (
     get_detailed_score
 )
 
-# Test Case 1: Entry-Level Position
 print("=" * 80)
 print("TEST 1: Entry-Level Junior Developer")
 print("=" * 80)
@@ -50,7 +49,6 @@ print(f"  Matched: {result1['details']['skills']['matched']}")
 print(f"  Missing: {result1['details']['skills']['missing']}")
 print(f"  Match Ratio: {result1['details']['skills']['match_ratio']}%")
 
-# Test Case 2: Senior Position
 print("\n" + "=" * 80)
 print("TEST 2: Senior Backend Engineer")
 print("=" * 80)
@@ -83,7 +81,6 @@ print(f"  Skills: {result2['weights']['skills']*100}%")
 print(f"  Experience: {result2['weights']['experience']*100}%")
 print(f"  Education: {result2['weights']['education']*100}%")
 
-# Test Case 3: Unqualified Candidate (Should be rejected)
 print("\n" + "=" * 80)
 print("TEST 3: Unqualified Candidate (Different Tech Stack)")
 print("=" * 80)
@@ -108,7 +105,6 @@ print(f"  Matched: {result3['details']['skills']['matched']}")
 print(f"  Missing: {result3['details']['skills']['missing']}")
 print(f"  Critical Missing: {result3['details']['skills']['critical_missing']}")
 
-# Test Case 4: Mid-Level Position
 print("\n" + "=" * 80)
 print("TEST 4: Mid-Level Full Stack Developer")
 print("=" * 80)

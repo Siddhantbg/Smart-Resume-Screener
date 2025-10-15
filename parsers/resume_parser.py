@@ -1,5 +1,7 @@
 from pdfminer.high_level import extract_text
 import re
+import os
+import google.generativeai as genai
 
 def clean_text(text):
     text = re.sub(r'\s+', ' ', text)
@@ -9,19 +11,15 @@ def clean_text(text):
 def extract_name(text):
     lines = text.split('\n')
     
-    # Try multiple patterns for name extraction
-    for line in lines[:10]:  # Check first 10 lines instead of 5
+    for line in lines[:10]:  
         line = line.strip()
         
-        # Skip empty lines, URLs, emails, phone numbers
         if not line or '@' in line or 'http' in line.lower() or 'www' in line.lower():
             continue
         
-        # Skip lines with numbers (likely dates, IDs, etc.)
         if any(char.isdigit() for char in line):
             continue
             
-        # Skip common header words
         skip_words = ['resume', 'curriculum', 'vitae', 'cv', 'profile', 'summary', 'objective', 
                       'education', 'experience', 'skills', 'projects', 'contact', 'software', 
                       'engineer', 'developer', 'analyst', 'intern', 'internship', 'manager']
@@ -29,10 +27,9 @@ def extract_name(text):
             continue
         
         words = line.split()
-        if 2 <= len(words) <= 5:  # Name should be 2-5 words
-            # Check if it looks like a name (all words start with capital or are all caps)
+        if 2 <= len(words) <= 5: 
+            
             if all(word[0].isupper() or word.isupper() for word in words if len(word) > 0):
-                # Additional validation: should be mostly letters
                 letter_count = sum(c.isalpha() or c.isspace() for c in line)
                 if letter_count / len(line) > 0.8:  # At least 80% letters/spaces
                     return line
@@ -81,14 +78,21 @@ def extract_education(text):
     lines = text.split('\n')
     education_blocks = []
     
-    # First, look for CGPA/percentage patterns in the entire text
+    # Enhanced grade patterns to catch more formats
     grade_patterns = [
-        r'CGPA\s*[-:]?\s*(\d+\.?\d*)',
-        r'GPA\s*[-:]?\s*(\d+\.?\d*)',
-        r'(\d{2,3}\.\d+)%',
-        r'(\d{2,3})%',
-        r'10th.*?(\d{2,3}\.?\d*%)',
-        r'12th.*?(\d{2,3}\.?\d*%)',
+        r'CGPA\s*[\-:=]?\s*(\d+\.?\d*)\s*[/oO]?\s*10',
+        r'CGPA\s*[\-:=]?\s*(\d+\.?\d*)',
+        r'GPA\s*[\-:=]?\s*(\d+\.?\d*)\s*[/oO]?\s*[14]',
+        r'GPA\s*[\-:=]?\s*(\d+\.?\d*)',
+        r'(\d{2,3}\.\d+)\s*%',
+        r'(\d{2,3})\s*%',
+        r'Percentage\s*[\-:=]?\s*(\d{2,3}\.?\d*)',
+        r'Marks\s*[\-:=]?\s*(\d{2,3}\.?\d*)',
+        r'10th.*?[\-:=]?\s*(\d{2,3}\.?\d*)%?',
+        r'12th.*?[\-:=]?\s*(\d{2,3}\.?\d*)%?',
+        r'X\s*[\-:=]?\s*(\d{2,3}\.?\d*)%?',
+        r'XII\s*[\-:=]?\s*(\d{2,3}\.?\d*)%?',
+        r'Aggregate\s*[\-:=]?\s*(\d{2,3}\.?\d*)',
     ]
     
     grades_found = []
@@ -97,7 +101,6 @@ def extract_education(text):
         for match in matches:
             grades_found.append(match.group(0))
     
-    # Find all education-related sections
     in_education_section = False
     education_lines = []
     
@@ -105,47 +108,41 @@ def extract_education(text):
         line_stripped = line.strip()
         line_lower = line_stripped.lower()
         
-        # Detect education section start
         if 'education' in line_lower and len(line_stripped) < 30:
             in_education_section = True
             continue
         
-        # Stop at next major section
         if in_education_section and any(sec in line_lower for sec in ['summary', 'experience', 'project', 'skill', 'achievement', 'certification']) and len(line_stripped) < 30:
             break
         
-        # Collect education lines
         if in_education_section and line_stripped:
             education_lines.append(line_stripped)
     
-    # Also search for degree mentions outside education section
     for i, line in enumerate(lines):
         line_lower = line.lower()
         if any(keyword in line_lower for keyword in education_keywords):
-            # Collect context around this line
             context = []
-            for j in range(max(0, i-1), min(len(lines), i+5)):
+            for j in range(max(0, i-1), min(len(lines), i+6)):
                 if lines[j].strip():
                     context.append(lines[j].strip())
             
-            education_block = ' | '.join(context[:6])
+            education_block = ' | '.join(context[:8])
             education_blocks.append(education_block)
     
-    # Combine all education info
     all_education_parts = []
     
     if education_lines:
-        all_education_parts.append(' | '.join(education_lines[:15]))  # Take first 15 lines of education section
+        all_education_parts.append(' | '.join(education_lines[:20]))
     
     if education_blocks:
-        all_education_parts.extend(education_blocks[:2])
+        all_education_parts.extend(education_blocks[:3])
     
     if grades_found:
         all_education_parts.append('Grades: ' + ', '.join(set(grades_found)))
     
     if all_education_parts:
         result = ' || '.join(all_education_parts)
-        return clean_text(result)[:500]  # Limit length but keep more info
+        return clean_text(result)[:800]  # Increased from 500 to capture more context
     
     return "Not specified"
 
@@ -190,15 +187,59 @@ def extract_projects(text):
     
     return projects[:5]
 
+def enhance_education_with_gemini(education_text, full_text):
+    """Use Gemini to extract additional education details if available."""
+    try:
+        api_key = os.getenv("GEMINI_API_KEY")
+        if not api_key:
+            return education_text
+        
+        genai.configure(api_key=api_key)
+        model = genai.GenerativeModel('gemini-2.0-flash-exp')
+        
+        prompt = f"""Extract education details from this resume text. Focus on:
+1. Degree names (B.Tech, M.Tech, Bachelor's, Master's, etc.)
+2. Field of study (Computer Science, IT, Engineering, etc.)
+3. CGPA or Percentage scores (be very precise with numbers)
+4. University/College names
+5. Year of graduation
+
+Return ONLY the extracted information in a concise format. Include ALL CGPA/percentage scores found.
+
+Resume excerpt:
+{full_text[:1500]}
+
+Current extracted education: {education_text}
+
+Enhanced education details:"""
+        
+        response = model.generate_content(prompt)
+        enhanced = response.text.strip()
+        
+        # Combine original and enhanced, keeping both
+        if enhanced and len(enhanced) > 20 and enhanced.lower() != 'not specified':
+            return f"{education_text} || Gemini Enhanced: {enhanced}"
+        
+        return education_text
+        
+    except Exception as e:
+        print(f"Gemini enhancement failed: {e}")
+        return education_text
+
 def extract_resume_data(file_path):
     text = extract_text(file_path)
+    
+    education_basic = extract_education(text)
+    
+    # Try to enhance with Gemini if available
+    education_enhanced = enhance_education_with_gemini(education_basic, text)
     
     return {
         "name": extract_name(text),
         "email": extract_email(text),
         "phone": extract_phone(text),
         "skills": extract_skills(text),
-        "education": extract_education(text),
+        "education": education_enhanced,
         "experience": extract_experience(text),
         "projects": extract_projects(text),
         "raw_text": text[:500]
