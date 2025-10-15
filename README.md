@@ -64,7 +64,7 @@ smart-resume-screener/
 
 ## System Architecture Diagram
 
-![Architecture Diagram](https://i.imgur.com/0zqvK8T.png)
+<img width="1536" height="1024" alt="architecture" src="https://github.com/user-attachments/assets/b3c9909c-60c1-4955-8d57-da1d0d5ed6e9" />
 
 **Flow:** Resume & JD Upload → Parsing Engine → Gemini LLM → Scoring Engine → MongoDB → Frontend Dashboard
 
