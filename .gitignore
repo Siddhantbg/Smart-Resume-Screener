@@ -36,3 +36,15 @@ uploads/
 temp/
 parsers/*.pdf
 parsers/*.docx
+
+# Ignore all Markdown files, but keep README variants
+*.md
+!README.md
+!Readme.md
+!readme.md
+
+# Ignore all text files, but keep requirements.txt variants
+*.txt
+!requirements.txt
+!Requirements.txt
+!REQUIREMENTS.txt

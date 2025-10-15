@@ -97,7 +97,10 @@ export default function DatabaseManager({ onDataChange }) {
 
   return (
     <div className="space-y-6">
-      <div className="bg-white border border-gray-200 rounded-lg p-6">
+      <div className="border border-gray-200 rounded-lg p-6" style={{
+        background: 'linear-gradient(135deg, rgba(59,130,246,0.06), rgba(139,92,246,0.06))',
+        backdropFilter: 'blur(10px)'
+      }}>
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-2xl font-bold text-gray-800">Database Management</h2>
           <button

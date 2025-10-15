@@ -1,3 +1,6 @@
+import StatusLottie from './StatusLottie'
+import StatusIcon from './StatusIcon'
+
 export default function ResultsTable({ results }) {
   const getScoreColor = (score) => {
     if (score >= 8) return 'text-green-600 bg-green-50'
@@ -96,16 +99,19 @@ export default function ResultsTable({ results }) {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     {isShortlisted ? (
-                      <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800">
-                        ✅ Shortlisted
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800">
+                        <StatusIcon type="shortlisted" className="w-4 h-4" title="Shortlisted" />
+                        Shortlisted
                       </span>
                     ) : result.overall_fit >= 4 ? (
-                      <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-800">
-                        ⚠️ Review Needed
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-800">
+                        <StatusIcon type="review" className="w-4 h-4" title="Review Needed" />
+                        Review Needed
                       </span>
                     ) : (
-                      <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-800">
-                        ❌ Rejected
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-800">
+                        <StatusIcon type="rejected" className="w-4 h-4" title="Rejected" />
+                        Rejected
                       </span>
                     )}
                   </td>

@@ -190,24 +190,36 @@ export default function Analytics({ refreshTrigger }) {
             {analytics.most_requested_roles.map((role, index) => (
               <div 
                 key={index} 
-                className={`flex items-center justify-between p-3 rounded ${
+                className={`mt-8 rounded-lg p-4 ${
                   role.role === "Not specified" 
                     ? "bg-yellow-50 border border-yellow-200" 
                     : "bg-gray-50"
                 }`}
+                style={{
+                  background: 'linear-gradient(135deg, rgba(59,130,246,0.12), rgba(139,92,246,0.12))',
+                  border: '1px solid rgba(139,92,246,0.18)',
+                  boxShadow: '0 2px 16px rgba(139,92,246,0.10)',
+                  color: '#fff',
+                  fontWeight: 500,
+                  fontSize: '1.25rem',
+                  letterSpacing: '0.5px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between'
+                }}
               >
-                <span className={`font-medium ${
-                  role.role === "Not specified" 
-                    ? "text-yellow-800" 
-                    : "text-gray-700"
-                }`}>
+                <span style={{ color: '#fff', fontWeight: 600 }}>
                   {role.role}
                 </span>
-                <span className={`px-3 py-1 rounded-full text-sm font-semibold ${
-                  role.role === "Not specified"
-                    ? "bg-yellow-100 text-yellow-700"
-                    : "bg-blue-100 text-blue-700"
-                }`}>
+                <span style={{
+                  background: 'linear-gradient(135deg, rgba(59,130,246,0.25), rgba(139,92,246,0.25))',
+                  color: '#fff',
+                  fontWeight: 600,
+                  borderRadius: '999px',
+                  padding: '0.5rem 1.25rem',
+                  fontSize: '1rem',
+                  boxShadow: '0 2px 8px rgba(139,92,246,0.15)'
+                }}>
                   {role.count} requests
                 </span>
               </div>

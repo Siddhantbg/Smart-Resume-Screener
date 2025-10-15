@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react'
 import axios from 'axios'
+import StatusLottie from './StatusLottie'
+import StatusIcon from './StatusIcon'
 
 export default function UploadSection({ setResults, setLoading, setError }) {
   const [resumes, setResumes] = useState([])
@@ -239,20 +241,23 @@ export default function UploadSection({ setResults, setLoading, setError }) {
     // Scores >= 7.0 should always show as shortlisted
     if (status.is_shortlisted || status.overall_fit >= 7.0) {
       return (
-        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800">
-          ✅ Shortlisted
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800">
+          <StatusIcon type="shortlisted" className="w-4 h-4" title="Shortlisted" />
+          Shortlisted
         </span>
       )
     } else if (status.overall_fit >= 4.0) {
       return (
-        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-800">
-          ⚠️ Under Review
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-800">
+          <StatusIcon type="review" className="w-4 h-4" title="Under Review" />
+          Under Review
         </span>
       )
     } else {
       return (
-        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-800">
-          ❌ Rejected
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-800">
+          <StatusIcon type="rejected" className="w-4 h-4" title="Rejected" />
+          Rejected
         </span>
       )
     }
@@ -429,19 +434,28 @@ export default function UploadSection({ setResults, setLoading, setError }) {
               <p className="text-2xl font-bold text-slate-900">{uploadedResumes.length}</p>
             </div>
             <div className="bg-green-50 rounded-lg p-3 border border-green-200">
-              <p className="text-xs text-green-700 font-medium mb-1">✅ Shortlisted</p>
+              <p className="text-xs text-green-700 font-medium mb-1 inline-flex items-center gap-1">
+                <span className="text-green-700"><StatusIcon type="shortlisted" className="w-4 h-4" title="Shortlisted" /></span>
+                Shortlisted
+              </p>
               <p className="text-2xl font-bold text-green-800">
                 {Object.values(resumeStatuses).filter(s => s.is_shortlisted || s.overall_fit >= 7.0).length}
               </p>
             </div>
             <div className="bg-yellow-50 rounded-lg p-3 border border-yellow-200">
-              <p className="text-xs text-yellow-700 font-medium mb-1">⚠️ Under Review</p>
+              <p className="text-xs text-yellow-700 font-medium mb-1 inline-flex items-center gap-1">
+                <span className="text-yellow-700"><StatusIcon type="review" className="w-4 h-4" title="Under Review" /></span>
+                Under Review
+              </p>
               <p className="text-2xl font-bold text-yellow-800">
                 {Object.values(resumeStatuses).filter(s => !s.is_shortlisted && s.overall_fit >= 4.0 && s.overall_fit < 7.0).length}
               </p>
             </div>
             <div className="bg-red-50 rounded-lg p-3 border border-red-200">
-              <p className="text-xs text-red-700 font-medium mb-1">❌ Rejected</p>
+              <p className="text-xs text-red-700 font-medium mb-1 inline-flex items-center gap-1">
+                <span className="text-red-700"><StatusIcon type="rejected" className="w-4 h-4" title="Rejected" /></span>
+                Rejected
+              </p>
               <p className="text-2xl font-bold text-red-800">
                 {Object.values(resumeStatuses).filter(s => s.overall_fit < 4.0).length}
               </p>
