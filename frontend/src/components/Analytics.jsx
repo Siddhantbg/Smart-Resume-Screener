@@ -13,20 +13,22 @@ export default function Analytics({ refreshTrigger }) {
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    fetchAnalytics();
+    fetchAnalytics(true); // Initial load with loading state
   }, [refreshTrigger]);
 
   useEffect(() => {
     const intervalId = setInterval(() => {
-      fetchAnalytics();
-    }, 10000);
+      fetchAnalytics(false); // Background refresh without loading state
+    }, 30000); // Increased to 30 seconds to reduce interruptions
     
     return () => clearInterval(intervalId);
   }, []);
 
-  const fetchAnalytics = async () => {
+  const fetchAnalytics = async (showLoading = false) => {
     try {
-      setLoading(true);
+      if (showLoading) {
+        setLoading(true);
+      }
       const response = await axios.get('/api/analytics');
       setAnalytics(response.data.data);
       setError(null);
@@ -34,7 +36,9 @@ export default function Analytics({ refreshTrigger }) {
       setError(err.response?.data?.detail || 'Failed to fetch analytics');
       console.error('Analytics error:', err);
     } finally {
-      setLoading(false);
+      if (showLoading) {
+        setLoading(false);
+      }
     }
   };
 

@@ -115,6 +115,10 @@ def save_score(resume_id, jd_id, score_data, resume_filename, jd_filename):
             "education_fit": score_data.get("education_fit", 0),
             "overall_fit": score_data.get("overall_fit", 0),
             "justification": score_data.get("justification", ""),
+            "is_shortlisted": score_data.get("is_shortlisted", False),
+            "seniority_level": score_data.get("seniority_level", "unknown"),
+            "weights": score_data.get("weights", {"skills": 0.5, "experience": 0.3, "education": 0.2}),
+            "details": score_data.get("details", {}),
             "timestamp": datetime.utcnow()
         }
         result = db.scores.insert_one(score_doc)
@@ -169,6 +173,34 @@ def get_all_scores():
     except Exception as e:
         print(f"Error fetching scores: {e}")
         return []
+
+def get_all_job_descriptions():
+    db = get_database()
+    if db is None:
+        return []
+    
+    try:
+        jds = list(db.job_descriptions.find().sort("timestamp", -1).limit(100))
+        for jd in jds:
+            jd["_id"] = str(jd["_id"])
+        return jds
+    except Exception as e:
+        print(f"Error fetching job descriptions: {e}")
+        return []
+
+def get_job_description_by_id(jd_id):
+    db = get_database()
+    if db is None:
+        return None
+    
+    try:
+        jd = db.job_descriptions.find_one({"_id": ObjectId(jd_id)})
+        if jd:
+            jd["_id"] = str(jd["_id"])
+        return jd
+    except Exception as e:
+        print(f"Error fetching job description: {e}")
+        return None
 
 def delete_resume(resume_id):
     db = get_database()
@@ -255,6 +287,20 @@ def clear_all_data():
     except Exception as e:
         print(f"Error clearing data: {e}")
         return False
+
+def get_resume_scores(resume_id):
+    db = get_database()
+    if db is None:
+        return []
+    
+    try:
+        scores = list(db.scores.find({"resume_id": resume_id}).sort("timestamp", -1))
+        for score in scores:
+            score["_id"] = str(score["_id"])
+        return scores
+    except Exception as e:
+        print(f"Error fetching resume scores: {e}")
+        return []
 
 def get_analytics_data():
     db = get_database()

@@ -5,11 +5,20 @@ export default function UploadSection({ setResults, setLoading, setError }) {
   const [resumes, setResumes] = useState([])
   const [jobDescription, setJobDescription] = useState(null)
   const [uploadedResumes, setUploadedResumes] = useState([])
-  const [loadingUploaded, setLoadingUploaded] = useState(false)
+  const [loadingUploaded, setLoadingUploaded] = useState(true) // Start with true for initial load
+  const [selectedResume, setSelectedResume] = useState(null)
+  const [resumeScores, setResumeScores] = useState([])
+  const [loadingScores, setLoadingScores] = useState(false)
+  const [uploadedJDs, setUploadedJDs] = useState([])
+  const [loadingJDs, setLoadingJDs] = useState(true)
+  const [selectedJDId, setSelectedJDId] = useState('')
+  const [jdMode, setJdMode] = useState('upload') // 'upload' or 'select'
+  const [resumeStatuses, setResumeStatuses] = useState({}) // Store latest status for each resume
 
-  // Fetch uploaded resumes on component mount
+  // Fetch uploaded resumes and JDs on component mount
   useEffect(() => {
     fetchUploadedResumes()
+    fetchUploadedJDs()
   }, [])
 
   const fetchUploadedResumes = async () => {
@@ -17,12 +26,61 @@ export default function UploadSection({ setResults, setLoading, setError }) {
     try {
       const response = await axios.get('/api/resumes')
       // API returns { status, count, data } - extract the data array
-      setUploadedResumes(response.data.data || [])
+      const resumesData = response.data.data || []
+      setUploadedResumes(resumesData)
+      
+      // Fetch latest score status for each resume
+      await fetchResumeStatuses(resumesData)
     } catch (err) {
       console.error('Error fetching uploaded resumes:', err)
       setUploadedResumes([]) // Set empty array on error
     } finally {
       setLoadingUploaded(false)
+    }
+  }
+
+  const fetchResumeStatuses = async (resumesData) => {
+    try {
+      const statuses = {}
+      
+      // Fetch latest score for each resume
+      for (const resume of resumesData) {
+        try {
+          const scoresResponse = await axios.get(`/api/resumes/${resume._id}/scores`)
+          const scores = scoresResponse.data.data || []
+          
+          if (scores.length > 0) {
+            // Get the most recent score
+            const latestScore = scores[0]
+            statuses[resume._id] = {
+              is_shortlisted: latestScore.is_shortlisted,
+              overall_fit: latestScore.overall_fit,
+              seniority_level: latestScore.seniority_level,
+              job_title: latestScore.job_title,
+              timestamp: latestScore.timestamp
+            }
+          }
+        } catch (err) {
+          console.error(`Error fetching scores for resume ${resume._id}:`, err)
+        }
+      }
+      
+      setResumeStatuses(statuses)
+    } catch (err) {
+      console.error('Error fetching resume statuses:', err)
+    }
+  }
+
+  const fetchUploadedJDs = async () => {
+    setLoadingJDs(true)
+    try {
+      const response = await axios.get('/api/job_descriptions')
+      setUploadedJDs(response.data.data || [])
+    } catch (err) {
+      console.error('Error fetching job descriptions:', err)
+      setUploadedJDs([])
+    } finally {
+      setLoadingJDs(false)
     }
   }
 
@@ -33,13 +91,39 @@ export default function UploadSection({ setResults, setLoading, setError }) {
 
   const handleJDChange = (e) => {
     setJobDescription(e.target.files[0])
+    setSelectedJDId('') // Clear selected JD when uploading new one
+  }
+
+  const handleJDModeChange = (mode) => {
+    setJdMode(mode)
+    if (mode === 'upload') {
+      setSelectedJDId('')
+    } else {
+      setJobDescription(null)
+    }
+  }
+
+  const handleSelectJD = (e) => {
+    setSelectedJDId(e.target.value)
+    setJobDescription(null) // Clear uploaded file when selecting existing
   }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     
-    if (resumes.length === 0 || !jobDescription) {
-      setError('Please upload at least one resume and a job description')
+    // Validate inputs based on mode
+    if (resumes.length === 0) {
+      setError('Please upload at least one resume')
+      return
+    }
+
+    if (jdMode === 'upload' && !jobDescription) {
+      setError('Please upload a job description')
+      return
+    }
+
+    if (jdMode === 'select' && !selectedJDId) {
+      setError('Please select a job description from the dropdown')
       return
     }
 
@@ -51,13 +135,27 @@ export default function UploadSection({ setResults, setLoading, setError }) {
       const allResults = []
 
       for (const resume of resumes) {
-        const formData = new FormData()
-        formData.append('resume', resume)
-        formData.append('jd', jobDescription)
+        let response
 
-        const response = await axios.post('/api/score_files', formData, {
-          headers: { 'Content-Type': 'multipart/form-data' }
-        })
+        if (jdMode === 'select') {
+          // Score with existing JD from database
+          const formData = new FormData()
+          formData.append('resume', resume)
+          formData.append('jd_id', selectedJDId)
+
+          response = await axios.post('/api/score_with_existing_jd', formData, {
+            headers: { 'Content-Type': 'multipart/form-data' }
+          })
+        } else {
+          // Score with uploaded JD file
+          const formData = new FormData()
+          formData.append('resume', resume)
+          formData.append('jd', jobDescription)
+
+          response = await axios.post('/api/score_files', formData, {
+            headers: { 'Content-Type': 'multipart/form-data' }
+          })
+        }
 
         if (response.data.status === 'success') {
           allResults.push({
@@ -70,8 +168,9 @@ export default function UploadSection({ setResults, setLoading, setError }) {
       const sortedResults = allResults.sort((a, b) => b.overall_fit - a.overall_fit)
       setResults(sortedResults)
       
-      // Refresh the uploaded resumes list
+      // Refresh the uploaded resumes list and JDs
       fetchUploadedResumes()
+      fetchUploadedJDs()
     } catch (err) {
       setError(err.response?.data?.detail || 'Failed to process files. Please check your API key and try again.')
     } finally {
@@ -87,9 +186,32 @@ export default function UploadSection({ setResults, setLoading, setError }) {
     try {
       await axios.delete(`/api/resumes/${id}`)
       fetchUploadedResumes()
+      if (selectedResume && selectedResume._id === id) {
+        setSelectedResume(null)
+        setResumeScores([])
+      }
     } catch (err) {
       console.error('Error deleting resume:', err)
     }
+  }
+
+  const handleViewStats = async (resume) => {
+    setSelectedResume(resume)
+    setLoadingScores(true)
+    try {
+      const response = await axios.get(`/api/resumes/${resume._id}/scores`)
+      setResumeScores(response.data.data || [])
+    } catch (err) {
+      console.error('Error fetching resume scores:', err)
+      setResumeScores([])
+    } finally {
+      setLoadingScores(false)
+    }
+  }
+
+  const closeStatsModal = () => {
+    setSelectedResume(null)
+    setResumeScores([])
   }
 
   const formatDate = (timestamp) => {
@@ -100,6 +222,54 @@ export default function UploadSection({ setResults, setLoading, setError }) {
       hour: '2-digit',
       minute: '2-digit'
     })
+  }
+
+  const getStatusBadge = (resumeId) => {
+    const status = resumeStatuses[resumeId]
+    
+    if (!status) {
+      return (
+        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-600">
+          Not Evaluated
+        </span>
+      )
+    }
+
+    // Use the backend's is_shortlisted flag as the primary decision
+    // Scores >= 7.0 should always show as shortlisted
+    if (status.is_shortlisted || status.overall_fit >= 7.0) {
+      return (
+        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800">
+          ✅ Shortlisted
+        </span>
+      )
+    } else if (status.overall_fit >= 4.0) {
+      return (
+        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-800">
+          ⚠️ Under Review
+        </span>
+      )
+    } else {
+      return (
+        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-800">
+          ❌ Rejected
+        </span>
+      )
+    }
+  }
+
+  const getStatusDetails = (resumeId) => {
+    const status = resumeStatuses[resumeId]
+    if (!status) return null
+
+    return (
+      <div className="text-xs text-slate-500 mt-1.5">
+        <span className="font-medium">Score: {status.overall_fit.toFixed(1)}/10</span>
+        {status.job_title && (
+          <span className="ml-2">• Last evaluated for: {status.job_title}</span>
+        )}
+      </div>
+    )
   }
 
   return (
@@ -131,24 +301,98 @@ export default function UploadSection({ setResults, setLoading, setError }) {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-2">
+          <label className="block text-sm font-medium text-slate-700 mb-3">
             Job Description <span className="text-red-500">*</span>
           </label>
-          <input
-            type="file"
-            accept=".pdf"
-            onChange={handleJDChange}
-            className="block w-full text-sm text-slate-500
-              file:mr-4 file:py-2 file:px-4
-              file:rounded-lg file:border-0
-              file:text-sm file:font-semibold
-              file:bg-blue-50 file:text-blue-700
-              hover:file:bg-blue-100 cursor-pointer"
-          />
-          {jobDescription && (
-            <p className="mt-2 text-sm text-slate-600">
-              {jobDescription.name}
-            </p>
+          
+          {/* Mode Toggle */}
+          <div className="flex gap-2 mb-3">
+            <button
+              type="button"
+              onClick={() => handleJDModeChange('upload')}
+              className={`flex-1 py-2 px-4 rounded-lg font-medium text-sm transition ${
+                jdMode === 'upload'
+                  ? 'bg-blue-500 text-white'
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              }`}
+            >
+              Upload New JD
+            </button>
+            <button
+              type="button"
+              onClick={() => handleJDModeChange('select')}
+              className={`flex-1 py-2 px-4 rounded-lg font-medium text-sm transition ${
+                jdMode === 'select'
+                  ? 'bg-blue-500 text-white'
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              }`}
+            >
+              Select Existing JD
+            </button>
+          </div>
+
+          {/* Upload Mode */}
+          {jdMode === 'upload' && (
+            <>
+              <input
+                type="file"
+                accept=".pdf"
+                onChange={handleJDChange}
+                className="block w-full text-sm text-slate-500
+                  file:mr-4 file:py-2 file:px-4
+                  file:rounded-lg file:border-0
+                  file:text-sm file:font-semibold
+                  file:bg-blue-50 file:text-blue-700
+                  hover:file:bg-blue-100 cursor-pointer"
+              />
+              {jobDescription && (
+                <p className="mt-2 text-sm text-slate-600">
+                  {jobDescription.name}
+                </p>
+              )}
+            </>
+          )}
+
+          {/* Select Mode */}
+          {jdMode === 'select' && (
+            <div>
+              {loadingJDs ? (
+                <div className="text-center py-4 text-slate-500">
+                  <div className="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500"></div>
+                  <p className="mt-2 text-sm">Loading job descriptions...</p>
+                </div>
+              ) : uploadedJDs.length === 0 ? (
+                <div className="text-center py-4 text-slate-500 bg-slate-50 rounded-lg border border-slate-200">
+                  <p className="text-sm">No job descriptions uploaded yet</p>
+                  <p className="text-xs mt-1">Switch to "Upload New JD" to add one</p>
+                </div>
+              ) : (
+                <>
+                  <select
+                    value={selectedJDId}
+                    onChange={handleSelectJD}
+                    className="block w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="">-- Select a Job Description --</option>
+                    {uploadedJDs.map((jd) => (
+                      <option key={jd._id} value={jd._id}>
+                        {jd.job_title || 'Unknown Position'} - {jd.company || 'No Company'} ({new Date(jd.timestamp).toLocaleDateString()})
+                      </option>
+                    ))}
+                  </select>
+                  {selectedJDId && (
+                    <div className="mt-2 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                      <p className="text-sm text-blue-900 font-medium">
+                        Selected: {uploadedJDs.find(jd => jd._id === selectedJDId)?.job_title || 'Unknown'}
+                      </p>
+                      <p className="text-xs text-blue-700 mt-1">
+                        {uploadedJDs.find(jd => jd._id === selectedJDId)?.filename}
+                      </p>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
           )}
         </div>
 
@@ -177,10 +421,38 @@ export default function UploadSection({ setResults, setLoading, setError }) {
           </button>
         </div>
 
+        {/* Status Summary */}
+        {uploadedResumes.length > 0 && Object.keys(resumeStatuses).length > 0 && (
+          <div className="grid grid-cols-4 gap-3 mb-4">
+            <div className="bg-slate-50 rounded-lg p-3 border border-slate-200">
+              <p className="text-xs text-slate-600 font-medium mb-1">Total Resumes</p>
+              <p className="text-2xl font-bold text-slate-900">{uploadedResumes.length}</p>
+            </div>
+            <div className="bg-green-50 rounded-lg p-3 border border-green-200">
+              <p className="text-xs text-green-700 font-medium mb-1">✅ Shortlisted</p>
+              <p className="text-2xl font-bold text-green-800">
+                {Object.values(resumeStatuses).filter(s => s.is_shortlisted || s.overall_fit >= 7.0).length}
+              </p>
+            </div>
+            <div className="bg-yellow-50 rounded-lg p-3 border border-yellow-200">
+              <p className="text-xs text-yellow-700 font-medium mb-1">⚠️ Under Review</p>
+              <p className="text-2xl font-bold text-yellow-800">
+                {Object.values(resumeStatuses).filter(s => !s.is_shortlisted && s.overall_fit >= 4.0 && s.overall_fit < 7.0).length}
+              </p>
+            </div>
+            <div className="bg-red-50 rounded-lg p-3 border border-red-200">
+              <p className="text-xs text-red-700 font-medium mb-1">❌ Rejected</p>
+              <p className="text-2xl font-bold text-red-800">
+                {Object.values(resumeStatuses).filter(s => s.overall_fit < 4.0).length}
+              </p>
+            </div>
+          </div>
+        )}
+
         {loadingUploaded ? (
-          <div className="text-center py-8 text-slate-500">
-            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
-            <p className="mt-2">Loading resumes...</p>
+          <div className="flex flex-col items-center justify-center py-16 bg-slate-50 rounded-lg border border-slate-200">
+            <div className="inline-block animate-spin rounded-full h-10 w-10 border-4 border-slate-200 border-t-blue-500"></div>
+            <p className="mt-4 text-sm font-medium text-slate-600">Loading resumes...</p>
           </div>
         ) : uploadedResumes.length === 0 ? (
           <div className="text-center py-8 text-slate-500">
@@ -204,26 +476,41 @@ export default function UploadSection({ setResults, setLoading, setError }) {
                     </svg>
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-slate-900 truncate">
-                      {resume.name || 'Unknown Candidate'}
-                    </p>
+                    <div className="flex items-center gap-2 mb-1">
+                      <p className="text-sm font-semibold text-slate-900 truncate">
+                        {resume.name || 'Unknown Candidate'}
+                      </p>
+                      {getStatusBadge(resume._id)}
+                    </div>
                     <p className="text-xs text-slate-600 truncate">
                       {resume.filename}
                     </p>
                     <p className="text-xs text-slate-500 mt-1">
                       {resume.email || 'No email'} • Uploaded {formatDate(resume.timestamp)}
                     </p>
+                    {getStatusDetails(resume._id)}
                   </div>
                 </div>
-                <button
-                  onClick={() => handleDeleteResume(resume._id)}
-                  className="flex-shrink-0 ml-4 text-red-600 hover:text-red-700 p-2 hover:bg-red-50 rounded-lg transition"
-                  title="Delete resume"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                  </svg>
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => handleViewStats(resume)}
+                    className="flex-shrink-0 text-blue-600 hover:text-blue-700 p-2 hover:bg-blue-50 rounded-lg transition"
+                    title="View scoring history"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                    </svg>
+                  </button>
+                  <button
+                    onClick={() => handleDeleteResume(resume._id)}
+                    className="flex-shrink-0 text-red-600 hover:text-red-700 p-2 hover:bg-red-50 rounded-lg transition"
+                    title="Delete resume"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                  </button>
+                </div>
               </div>
             ))}
           </div>
@@ -235,6 +522,156 @@ export default function UploadSection({ setResults, setLoading, setError }) {
           </div>
         )}
       </div>
+
+      {/* Stats Modal */}
+      {selectedResume && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between p-6 border-b border-slate-200">
+              <div>
+                <h3 className="text-xl font-semibold text-slate-900">
+                  {selectedResume.name || 'Unknown Candidate'}
+                </h3>
+                <p className="text-sm text-slate-600 mt-1">
+                  {selectedResume.filename} • {selectedResume.email || 'No email'}
+                </p>
+              </div>
+              <button
+                onClick={closeStatsModal}
+                className="text-slate-400 hover:text-slate-600 p-2 hover:bg-slate-100 rounded-lg transition"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 overflow-y-auto max-h-[calc(90vh-140px)]">
+              {loadingScores ? (
+                <div className="text-center py-12">
+                  <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+                  <p className="mt-4 text-slate-600">Loading scoring history...</p>
+                </div>
+              ) : resumeScores.length === 0 ? (
+                <div className="text-center py-12">
+                  <svg className="mx-auto h-16 w-16 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  <p className="mt-4 text-slate-600 font-medium">No scoring history found</p>
+                  <p className="text-sm text-slate-500 mt-2">This resume hasn't been scored against any job descriptions yet.</p>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  {/* Summary Stats */}
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div className="bg-blue-50 rounded-lg p-4">
+                      <p className="text-sm text-blue-600 font-medium">Total Evaluations</p>
+                      <p className="text-2xl font-bold text-blue-900 mt-1">{resumeScores.length}</p>
+                    </div>
+                    <div className="bg-green-50 rounded-lg p-4">
+                      <p className="text-sm text-green-600 font-medium">Avg Overall Fit</p>
+                      <p className="text-2xl font-bold text-green-900 mt-1">
+                        {(resumeScores.reduce((sum, s) => sum + s.overall_fit, 0) / resumeScores.length).toFixed(1)}/10
+                      </p>
+                    </div>
+                    <div className="bg-purple-50 rounded-lg p-4">
+                      <p className="text-sm text-purple-600 font-medium">Best Match</p>
+                      <p className="text-2xl font-bold text-purple-900 mt-1">
+                        {Math.max(...resumeScores.map(s => s.overall_fit)).toFixed(1)}/10
+                      </p>
+                    </div>
+                    <div className="bg-amber-50 rounded-lg p-4">
+                      <p className="text-sm text-amber-600 font-medium">Avg Skills Match</p>
+                      <p className="text-2xl font-bold text-amber-900 mt-1">
+                        {(resumeScores.reduce((sum, s) => sum + s.skills_match, 0) / resumeScores.length).toFixed(1)}/10
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Detailed Scores */}
+                  <div>
+                    <h4 className="text-lg font-semibold text-slate-900 mb-4">Scoring History</h4>
+                    <div className="space-y-4">
+                      {resumeScores.map((score, index) => (
+                        <div key={score._id} className="bg-slate-50 rounded-lg border border-slate-200 p-5">
+                          <div className="flex items-start justify-between mb-4">
+                            <div>
+                              <h5 className="font-semibold text-slate-900">
+                                {score.job_title || 'Unknown Position'}
+                              </h5>
+                              <p className="text-sm text-slate-600 mt-1">
+                                Evaluated on {formatDate(score.timestamp)}
+                              </p>
+                            </div>
+                            <div className="text-right">
+                              <div className="text-2xl font-bold text-blue-600">
+                                {score.overall_fit}/10
+                              </div>
+                              <p className="text-xs text-slate-500">Overall Fit</p>
+                            </div>
+                          </div>
+
+                          {/* Score Breakdown */}
+                          <div className="grid grid-cols-3 gap-4 mb-4">
+                            <div>
+                              <div className="flex items-center justify-between mb-1">
+                                <span className="text-sm text-slate-600">Skills Match</span>
+                                <span className="text-sm font-semibold text-slate-900">{score.skills_match}/10</span>
+                              </div>
+                              <div className="w-full bg-slate-200 rounded-full h-2">
+                                <div
+                                  className="bg-blue-500 h-2 rounded-full transition-all"
+                                  style={{ width: `${(score.skills_match / 10) * 100}%` }}
+                                ></div>
+                              </div>
+                            </div>
+                            <div>
+                              <div className="flex items-center justify-between mb-1">
+                                <span className="text-sm text-slate-600">Experience</span>
+                                <span className="text-sm font-semibold text-slate-900">{score.experience_relevance}/10</span>
+                              </div>
+                              <div className="w-full bg-slate-200 rounded-full h-2">
+                                <div
+                                  className="bg-green-500 h-2 rounded-full transition-all"
+                                  style={{ width: `${(score.experience_relevance / 10) * 100}%` }}
+                                ></div>
+                              </div>
+                            </div>
+                            <div>
+                              <div className="flex items-center justify-between mb-1">
+                                <span className="text-sm text-slate-600">Education</span>
+                                <span className="text-sm font-semibold text-slate-900">{score.education_fit}/10</span>
+                              </div>
+                              <div className="w-full bg-slate-200 rounded-full h-2">
+                                <div
+                                  className="bg-purple-500 h-2 rounded-full transition-all"
+                                  style={{ width: `${(score.education_fit / 10) * 100}%` }}
+                                ></div>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Justification */}
+                          {score.justification && (
+                            <div className="bg-white rounded-lg p-4 border border-slate-200">
+                              <p className="text-xs font-medium text-slate-500 uppercase mb-2">AI Analysis</p>
+                              <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">
+                                {score.justification}
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

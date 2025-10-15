@@ -43,7 +43,7 @@ app = FastAPI(lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=["http://localhost:3000", "http://localhost:3001"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -251,6 +251,81 @@ async def score_uploaded_files(resume: UploadFile = File(...), jd: UploadFile = 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error scoring files: {str(e)}")
 
+@app.post("/score_with_existing_jd")
+async def score_with_existing_jd(resume: UploadFile = File(...), jd_id: str = Body(...)):
+    from database import save_resume, save_score, get_job_description_by_id
+    
+    try:
+        gemini_key = os.getenv("GEMINI_API_KEY")
+        if not gemini_key:
+            raise HTTPException(status_code=401, detail="Gemini API key not configured")
+        
+        if not resume.filename.endswith('.pdf'):
+            raise HTTPException(status_code=422, detail="Resume must be a PDF file")
+        
+        # Get JD data from database
+        jd_doc = get_job_description_by_id(jd_id)
+        if not jd_doc:
+            raise HTTPException(status_code=404, detail="Job description not found")
+        
+        resume_path = UPLOAD_DIR / resume.filename
+        
+        try:
+            with open(resume_path, "wb") as buffer:
+                shutil.copyfileobj(resume.file, buffer)
+            
+            resume_data = extract_resume_data(str(resume_path))
+            
+            # Convert JD document to the format expected by scorer
+            jd_data = {
+                "job_title": jd_doc.get("job_title", "Unknown"),
+                "company": jd_doc.get("company", ""),
+                "location": jd_doc.get("location", ""),
+                "required_skills": jd_doc.get("required_skills", []),
+                "experience_required": jd_doc.get("experience_required", ""),
+                "qualifications": jd_doc.get("qualifications", []),
+                "responsibilities": jd_doc.get("responsibilities", [])
+            }
+            
+            detailed_score = get_detailed_score(resume_data, jd_data)
+            
+            resume_id = save_resume(resume_data, resume.filename)
+            
+            score_data = {
+                "name": resume_data.get('name', 'Unknown'),
+                "job_title": jd_data.get('job_title', 'Not specified'),
+                "skills_match": detailed_score["skills_match"],
+                "experience_relevance": detailed_score["experience_relevance"],
+                "education_fit": detailed_score["education_fit"],
+                "overall_fit": detailed_score["overall_fit"],
+                "justification": detailed_score["justification"]
+            }
+            
+            score_id = save_score(resume_id, jd_id, score_data, resume.filename, jd_doc.get("filename", ""))
+            
+            return {
+                "status": "success",
+                "score_id": score_id,
+                "resume_id": resume_id,
+                "jd_id": jd_id,
+                "candidate_name": resume_data.get('name', 'Unknown'),
+                "job_title": jd_data.get('job_title', 'Not specified'),
+                "skills_match": detailed_score["skills_match"],
+                "experience_relevance": detailed_score["experience_relevance"],
+                "education_fit": detailed_score["education_fit"],
+                "overall_fit": detailed_score["overall_fit"],
+                "justification": detailed_score["justification"]
+            }
+        
+        finally:
+            if resume_path.exists():
+                resume_path.unlink()
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error scoring with existing JD: {str(e)}")
+
 @app.get("/analytics")
 async def get_analytics():
     from database import get_analytics_data
@@ -312,6 +387,34 @@ async def get_scores():
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching scores: {str(e)}")
+
+@app.get("/job_descriptions")
+async def get_job_descriptions():
+    from database import get_all_job_descriptions
+    
+    try:
+        jds = get_all_job_descriptions()
+        return {
+            "status": "success",
+            "count": len(jds),
+            "data": jds
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching job descriptions: {str(e)}")
+
+@app.get("/resumes/{resume_id}/scores")
+async def get_resume_scores(resume_id: str):
+    from database import get_resume_scores
+    
+    try:
+        scores = get_resume_scores(resume_id)
+        return {
+            "status": "success",
+            "count": len(scores),
+            "data": scores
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching resume scores: {str(e)}")
 
 @app.delete("/resumes/{resume_id}")
 async def delete_resume(resume_id: str):

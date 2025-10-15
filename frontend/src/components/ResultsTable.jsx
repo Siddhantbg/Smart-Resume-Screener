@@ -14,16 +14,15 @@ export default function ResultsTable({ results }) {
     )
   }
 
-  const SHORTLIST_THRESHOLD = 6.0
-  const shortlistedCandidates = results.filter(r => r.overall_fit >= SHORTLIST_THRESHOLD)
-  const shortlistedCount = Math.min(shortlistedCandidates.length, 3)
+  const shortlistedCandidates = results.filter(r => r.is_shortlisted === true)
+  const shortlistedCount = shortlistedCandidates.length
 
   return (
     <div className="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
       {shortlistedCount > 0 && (
-        <div className="bg-blue-50 border-b border-blue-100 px-6 py-3">
-          <p className="text-sm font-medium text-blue-900">
-            🎯 Top {shortlistedCount} candidate{shortlistedCount > 1 ? 's' : ''} shortlisted (≥6.0/10 overall fit)
+        <div className="bg-green-50 border-b border-green-100 px-6 py-3">
+          <p className="text-sm font-medium text-green-900">
+            ✅ {shortlistedCount} candidate{shortlistedCount > 1 ? 's' : ''} shortlisted (≥40% alignment + critical skills match)
           </p>
         </div>
       )}
@@ -57,12 +56,14 @@ export default function ResultsTable({ results }) {
           </thead>
           <tbody className="bg-white divide-y divide-slate-200">
             {results.map((result, index) => {
-              const isShortlisted = result.overall_fit >= SHORTLIST_THRESHOLD && index < 3
+              // Improved logic: scores >= 7.0 are always shortlisted
+              const isShortlisted = result.is_shortlisted === true || result.overall_fit >= 7.0
+              const seniority = result.seniority_level || 'mid'
               return (
-                <tr key={index} className={isShortlisted ? 'bg-blue-50' : 'hover:bg-slate-50'}>
+                <tr key={index} className={isShortlisted ? 'bg-green-50 border-l-4 border-green-500' : 'hover:bg-slate-50'}>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">
-                      <span className={`text-lg font-bold ${isShortlisted ? 'text-blue-600' : 'text-slate-400'}`}>
+                      <span className={`text-lg font-bold ${isShortlisted ? 'text-green-600' : 'text-slate-400'}`}>
                         #{index + 1}
                       </span>
                     </div>
@@ -70,9 +71,13 @@ export default function ResultsTable({ results }) {
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm font-medium text-slate-900">
                       {result.candidate_name}
+                      {isShortlisted && <span className="ml-2 text-green-600">✓</span>}
                     </div>
                     <div className="text-xs text-slate-500">
                       {result.resumeName}
+                    </div>
+                    <div className="text-xs text-slate-400 mt-1">
+                      Level: <span className="capitalize font-medium">{seniority}</span>
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
@@ -92,15 +97,15 @@ export default function ResultsTable({ results }) {
                   <td className="px-6 py-4 whitespace-nowrap">
                     {isShortlisted ? (
                       <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800">
-                        Shortlisted
+                        ✅ Shortlisted
                       </span>
                     ) : result.overall_fit >= 4 ? (
                       <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-800">
-                        Under Review
+                        ⚠️ Review Needed
                       </span>
                     ) : (
                       <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-800">
-                        Not Qualified
+                        ❌ Rejected
                       </span>
                     )}
                   </td>
