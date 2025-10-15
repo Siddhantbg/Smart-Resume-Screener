@@ -53,9 +53,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Mount the API router with /api prefix
-app.mount("/api", api_router)
-
 @app.get("/")
 def root():
     return {"message": "Smart Resume Screener API running"}
@@ -192,7 +189,7 @@ async def score_resume_jd(request: ScoreRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error scoring resume: {str(e)}")
 
-@app.post("/score_files")
+@api_router.post("/score_files")
 async def score_uploaded_files(resume: UploadFile = File(...), jd: UploadFile = File(...)):
     from database import save_resume, save_job_description, save_score
     
@@ -262,7 +259,7 @@ async def score_uploaded_files(resume: UploadFile = File(...), jd: UploadFile = 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error scoring files: {str(e)}")
 
-@app.post("/score_with_existing_jd")
+@api_router.post("/score_with_existing_jd")
 async def score_with_existing_jd(resume: UploadFile = File(...), jd_id: str = Body(...)):
     from database import save_resume, save_score, get_job_description_by_id
     
@@ -337,7 +334,7 @@ async def score_with_existing_jd(resume: UploadFile = File(...), jd_id: str = Bo
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error scoring with existing JD: {str(e)}")
 
-@app.get("/analytics")
+@api_router.get("/analytics")
 async def get_analytics():
     from database import get_analytics_data
     
@@ -413,7 +410,7 @@ async def get_job_descriptions():
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching job descriptions: {str(e)}")
 
-@app.get("/resumes/{resume_id}/scores")
+@api_router.get("/resumes/{resume_id}/scores")
 async def get_resume_scores(resume_id: str):
     from database import get_resume_scores
     
@@ -427,7 +424,7 @@ async def get_resume_scores(resume_id: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching resume scores: {str(e)}")
 
-@app.delete("/resumes/{resume_id}")
+@api_router.delete("/resumes/{resume_id}")
 async def delete_resume(resume_id: str):
     from database import delete_resume
     
@@ -445,7 +442,7 @@ async def delete_resume(resume_id: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error deleting resume: {str(e)}")
 
-@app.delete("/scores/{score_id}")
+@api_router.delete("/scores/{score_id}")
 async def delete_score(score_id: str):
     from database import delete_score
     
@@ -463,7 +460,7 @@ async def delete_score(score_id: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error deleting score: {str(e)}")
 
-@app.post("/clear_database")
+@api_router.post("/clear_database")
 async def clear_database():
     from database import clear_all_data
     
@@ -480,3 +477,6 @@ async def clear_database():
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error clearing database: {str(e)}")
+
+# Include the API router with /api prefix at the end after all routes are defined
+app.include_router(api_router, prefix="/api")

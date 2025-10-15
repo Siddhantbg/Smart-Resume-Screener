@@ -193,7 +193,7 @@ export default function UploadSection({ setResults, setLoading, setError }) {
           formData.append('resume', resume)
           formData.append('jd_id', selectedJDId)
 
-          response = await axios.post('/api/score_with_existing_jd', formData, {
+          response = await api.post('/api/score_with_existing_jd', formData, {
             headers: { 'Content-Type': 'multipart/form-data' }
           })
         } else {
@@ -201,7 +201,7 @@ export default function UploadSection({ setResults, setLoading, setError }) {
           formData.append('resume', resume)
           formData.append('jd', jobDescription)
 
-          response = await axios.post('/api/score_files', formData, {
+          response = await api.post('/api/score_files', formData, {
             headers: { 'Content-Type': 'multipart/form-data' }
           })
         }
